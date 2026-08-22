@@ -409,9 +409,14 @@ function kanaToRomajiVariants(source){
     }
     pool.forEach(v=>set.add(v));
 
-    // nn と n の両方を許可（旧ローマ字登録用）
+    // 「ん」は n / nn の両方を許可（旧ローマ字登録にも対応）
+    // 例: densha / dennsha, kan / kann
     [...set].forEach(v=>{
       if(v.includes('nn')) set.add(v.replaceAll('nn','n'));
+
+      // n の次が母音・y・n 以外、または語末なら「ん」とみなし nn 版も作る
+      let doubled=v.replace(/n(?=[^aiueoyn]|$)/g,'nn');
+      set.add(doubled);
     });
     return [...set].slice(0,512);
   }

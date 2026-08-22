@@ -1006,3 +1006,60 @@ body{
 .wordPanel{bottom:25%!important}
 @media(max-height:900px){.keyboardGuide{width:min(92vw,700px);transform:translateX(-50%) scale(.86);transform-origin:bottom center;bottom:0}.wordPanel{bottom:26%!important}}
 @media(max-width:700px){.key{width:31px;height:30px;font-size:.75rem}.keyboardRow{gap:4px}.keyboardRow.row2{padding-left:8px}.keyboardRow.row3{padding-left:18px}.keyboardGuide{padding:6px}.nextKeyLabel{height:30px;font-size:1.1rem}}
+
+
+/* ===== v14 keyboard guide hard-fix ===== */
+#keyboardGuide.keyboardGuide{
+  position:absolute !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:8px !important;
+  transform:translateX(-50%) !important;
+  display:block !important;
+  width:min(720px,92vw) !important;
+  padding:7px 10px 9px !important;
+  background:rgba(7,17,30,.92) !important;
+  border:1px solid rgba(255,255,255,.22) !important;
+  border-radius:16px !important;
+  z-index:50 !important;
+  color:#fff !important;
+}
+#keyboardGuide .keyboardRow{
+  display:flex !important;
+  flex-direction:row !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:5px !important;
+  margin:4px 0 !important;
+}
+#keyboardGuide .key{
+  display:flex !important;
+  width:43px !important;
+  height:31px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:7px !important;
+  background:#162741 !important;
+  border:1px solid rgba(255,255,255,.18) !important;
+  color:#fff !important;
+  font-weight:900 !important;
+}
+#keyboardGuide .key.next{
+  background:#ffd54a !important;
+  color:#241800 !important;
+  box-shadow:0 0 16px rgba(255,213,74,.65) !important;
+}
+#keyboardGuide .key.correct{background:#6ee7a8 !important;color:#082313 !important}
+#keyboardGuide .key.wrong{background:#ff7d7d !important;color:#300808 !important}
+#keyboardGuide .keyboardTitle{
+  display:inline-block !important;
+  margin-right:8px !important;
+}
+#keyboardGuide .nextKeyLabel{
+  display:inline-flex !important;
+  min-width:42px !important;
+  height:27px !important;
+  margin:0 0 3px !important;
+  font-size:1.05rem !important;
+}
+.wordPanel{bottom:23% !important;}
