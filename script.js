@@ -458,7 +458,16 @@ function kanaToRomajiVariants(source){
     parts.push([one]);
     i++;
   }
-  return combineVariants(parts);
+  let variants=combineVariants(parts);
+
+  // 複合音「でぃ / ディ」は dhi / dxi のどちらも必ず許可する
+  // 例: フレディ → furedhi / furedxi
+  const expanded=new Set(variants);
+  for(const v of variants){
+    if(v.includes('dhi')) expanded.add(v.replaceAll('dhi','dxi'));
+    if(v.includes('dxi')) expanded.add(v.replaceAll('dxi','dhi'));
+  }
+  return [...expanded].slice(0,512);
 }
 
 function prepareTypingTargets(source){
