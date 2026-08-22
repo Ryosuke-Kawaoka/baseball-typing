@@ -1399,3 +1399,34 @@ body{
   align-items:center !important;
   justify-content:center !important;
 }
+
+
+/* ===== v19 背景選択 ===== */
+.bgSelectLabel{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-weight:800;
+}
+#backgroundSelect{
+  min-width:170px;
+  max-width:220px;
+}
+#app.bg-escon{
+  background-image:url('stadium_escon.png') !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
+#app.bg-dodgers{
+  background-image:url('stadium_dodgers.jpg') !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+}
+@media(max-width:900px){
+  #backgroundSelect{
+    min-width:140px;
+    max-width:160px;
+  }
+}

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>タイピング ホームランチャレンジ</title>
-<link rel="stylesheet" href="style.css?v=18" />
+<link rel="stylesheet" href="style.css?v=19" />
 </head><body><div id="app">
 <div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
 <div class="hud">
@@ -18,6 +18,12 @@
 </select>
 </label>
 <button id="start">10球チャレンジ開始</button>
+<label class="bgSelectLabel">背景
+<select id="backgroundSelect">
+<option value="escon">エスコンフィールド</option>
+<option value="dodgers">ドジャースタジアム</option>
+</select>
+</label>
 <button id="wordSettingsBtn" type="button">単語を編集</button>
 <button id="timeoutBtn" type="button">タイム</button>
 </div>
@@ -98,4 +104,4 @@
 </div>
 
 <div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
-<script src="script.js?v=18"></script></body></html>
+<script src="script.js?v=19"></script></body></html>

@@ -23,6 +23,38 @@ let words=loadWords();
 
 const $ = id => document.getElementById(id);
 
+
+const BG_STORAGE_KEY='typingBaseballBackgroundV1';
+
+function applyBackground(name){
+  const app=$('app');
+  if(!app)return;
+  const bg=name==='dodgers'?'dodgers':'escon';
+
+  app.classList.remove('bg-escon','bg-dodgers');
+  app.classList.add(`bg-${bg}`);
+
+  if($('backgroundSelect')){
+    $('backgroundSelect').value=bg;
+  }
+
+  try{
+    localStorage.setItem(BG_STORAGE_KEY,bg);
+  }catch(e){}
+}
+
+function loadBackground(){
+  let bg='escon';
+  try{
+    const saved=localStorage.getItem(BG_STORAGE_KEY);
+    if(saved==='escon' || saved==='dodgers'){
+      bg=saved;
+    }
+  }catch(e){}
+  applyBackground(bg);
+}
+
+
 const sfx = {
   hit: new Audio('hit.mp3'),
   homerun: new Audio('homerun.mp3'),
@@ -821,3 +853,11 @@ document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
 $('resumeBtn').addEventListener('click',resumeTimeout);
 
 updateKeyboardGuide();
+
+
+if($('backgroundSelect')){
+  $('backgroundSelect').addEventListener('change',e=>{
+    applyBackground(e.target.value);
+  });
+}
+loadBackground();
