@@ -33,6 +33,8 @@ Object.values(sfx).forEach(a => a.preload = 'auto');
 let active=false;
 let challenge=false;
 let target='';
+let acceptedTargets=[];
+let typedBuffer='';
 let jp='';
 let pos=0;
 let misses=0;
@@ -303,18 +305,208 @@ function resumeTimeout(){
   }
 }
 
+
+/* ===== 柔軟なローマ字入力 =====
+   例:
+   し = shi / si
+   しゃ = sha / sya
+   しゅ = shu / syu
+   しょ = sho / syo
+   ち = chi / ti
+   つ = tsu / tu
+   ふ = fu / hu
+   じ = ji / zi
+   ん = n / nn
+   などを許可する。
+*/
+const ROMAJI_MAP = {
+  'あ':['a'],'い':['i'],'う':['u'],'え':['e'],'お':['o'],
+  'か':['ka'],'き':['ki'],'く':['ku'],'け':['ke'],'こ':['ko'],
+  'さ':['sa'],'し':['shi','si'],'す':['su'],'せ':['se'],'そ':['so'],
+  'た':['ta'],'ち':['chi','ti'],'つ':['tsu','tu'],'て':['te'],'と':['to'],
+  'な':['na'],'に':['ni'],'ぬ':['nu'],'ね':['ne'],'の':['no'],
+  'は':['ha'],'ひ':['hi'],'ふ':['fu','hu'],'へ':['he'],'ほ':['ho'],
+  'ま':['ma'],'み':['mi'],'む':['mu'],'め':['me'],'も':['mo'],
+  'や':['ya'],'ゆ':['yu'],'よ':['yo'],
+  'ら':['ra'],'り':['ri'],'る':['ru'],'れ':['re'],'ろ':['ro'],
+  'わ':['wa'],'を':['wo'],
+  'ん':['n','nn'],
+  'が':['ga'],'ぎ':['gi'],'ぐ':['gu'],'げ':['ge'],'ご':['go'],
+  'ざ':['za'],'じ':['ji','zi'],'ず':['zu'],'ぜ':['ze'],'ぞ':['zo'],
+  'だ':['da'],'ぢ':['ji','di'],'づ':['zu','du'],'で':['de'],'ど':['do'],
+  'ば':['ba'],'び':['bi'],'ぶ':['bu'],'べ':['be'],'ぼ':['bo'],
+  'ぱ':['pa'],'ぴ':['pi'],'ぷ':['pu'],'ぺ':['pe'],'ぽ':['po'],
+
+  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
+  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
+  'ちゃ':['cha','tya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
+  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
+  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
+  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
+  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
+  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
+  'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
+  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
+  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
+
+  'ぁ':['xa','la'],'ぃ':['xi','li'],'ぅ':['xu','lu'],'ぇ':['xe','le'],'ぉ':['xo','lo'],
+  'ゃ':['xya','lya'],'ゅ':['xyu','lyu'],'ょ':['xyo','lyo'],
+  'っ':['xtu','ltu']
+};
+
+function katakanaToHiragana(s){
+  return s.replace(/[\u30a1-\u30f6]/g,ch =>
+    String.fromCharCode(ch.charCodeAt(0)-0x60)
+  );
+}
+
+function combineVariants(parts, limit=512){
+  let result=[''];
+  for(const choices of parts){
+    const next=[];
+    for(const base of result){
+      for(const c of choices){
+        next.push(base+c);
+        if(next.length>=limit) break;
+      }
+      if(next.length>=limit) break;
+    }
+    result=next;
+  }
+  return [...new Set(result)];
+}
+
+function kanaToRomajiVariants(source){
+  let s=katakanaToHiragana(String(source||'').trim().toLowerCase());
+
+  // すでにローマ字で登録されている旧データは、そのまま使いつつ
+  // よくある表記揺れも追加する
+  if(/^[a-z]+$/.test(s)){
+    const set=new Set([s]);
+    const swaps=[
+      ['shi','si'],['si','shi'],
+      ['sha','sya'],['sya','sha'],
+      ['shu','syu'],['syu','shu'],
+      ['sho','syo'],['syo','sho'],
+      ['chi','ti'],['ti','chi'],
+      ['cha','tya'],['tya','cha'],
+      ['chu','tyu'],['tyu','chu'],
+      ['cho','tyo'],['tyo','cho'],
+      ['tsu','tu'],['tu','tsu'],
+      ['fu','hu'],['hu','fu'],
+      ['ji','zi'],['zi','ji']
+    ];
+    // 複数箇所の表記揺れにもある程度対応
+    let pool=[s];
+    for(let round=0;round<3;round++){
+      const add=[];
+      for(const v of pool){
+        for(const [a,b] of swaps){
+          if(v.includes(a)) add.push(v.replaceAll(a,b));
+        }
+      }
+      pool=[...new Set([...pool,...add])].slice(0,512);
+    }
+    pool.forEach(v=>set.add(v));
+
+    // nn と n の両方を許可（旧ローマ字登録用）
+    [...set].forEach(v=>{
+      if(v.includes('nn')) set.add(v.replaceAll('nn','n'));
+    });
+    return [...set].slice(0,512);
+  }
+
+  const parts=[];
+  for(let i=0;i<s.length;){
+    // 小さい「っ」: 次の音の先頭子音を重ねる
+    if(s[i]==='っ'){
+      let nextKey=s.slice(i+1,i+3);
+      let nextChoices=ROMAJI_MAP[nextKey];
+      if(!nextChoices){
+        nextKey=s[i+1];
+        nextChoices=ROMAJI_MAP[nextKey];
+      }
+      if(nextChoices){
+        const consonants=[...new Set(nextChoices.map(v=>v[0]).filter(c=>/[a-z]/.test(c)))];
+        parts.push(consonants.length?consonants:['xtu','ltu']);
+        i++;
+        continue;
+      }
+    }
+
+    const two=s.slice(i,i+2);
+    if(ROMAJI_MAP[two]){
+      parts.push(ROMAJI_MAP[two]);
+      i+=2;
+      continue;
+    }
+    const one=s[i];
+    if(ROMAJI_MAP[one]){
+      parts.push(ROMAJI_MAP[one]);
+      i++;
+      continue;
+    }
+
+    // 未対応文字はそのまま（入力不能になるのを避ける）
+    parts.push([one]);
+    i++;
+  }
+  return combineVariants(parts);
+}
+
+function prepareTypingTargets(source){
+  acceptedTargets=kanaToRomajiVariants(source);
+  if(!acceptedTargets.length) acceptedTargets=[String(source||'').toLowerCase()];
+  // 画面表示は一番一般的な候補
+  target=acceptedTargets[0];
+  typedBuffer='';
+  pos=0;
+}
+
+function matchingTargets(buffer){
+  return acceptedTargets.filter(v=>v.startsWith(buffer));
+}
+
+function chooseDisplayTarget(){
+  const matches=matchingTargets(typedBuffer);
+  return matches[0] || target;
+}
+
+
+function getNextGuideKeys(){
+  const matches=matchingTargets(typedBuffer);
+  return [...new Set(matches.map(v=>v[typedBuffer.length]).filter(Boolean))];
+}
+function updateKeyboardGuide(){
+  document.querySelectorAll('.key').forEach(el=>el.classList.remove('next'));
+  if(!$('nextKeyLabel')) return;
+  if(!active){$('nextKeyLabel').textContent='-';return;}
+  const keys=getNextGuideKeys();
+  $('nextKeyLabel').textContent=keys.length?keys.map(k=>k.toUpperCase()).join(' / '):'-';
+  keys.forEach(k=>{const el=document.querySelector(`.key[data-key="${k}"]`);if(el)el.classList.add('next')});
+}
+function flashKeyboardKey(key,type){
+  const el=document.querySelector(`.key[data-key="${key}"]`);
+  if(!el)return;
+  el.classList.remove('correct','wrong');void el.offsetWidth;el.classList.add(type);
+  setTimeout(()=>el.classList.remove(type),220);
+}
+
 function renderWord(){
+  const displayTarget=chooseDisplayTarget();
+  target=displayTarget;
   let h='';
-  for(let i=0;i<target.length;i++){
-    const c=target[i];
-    h += i<pos
+  for(let i=0;i<displayTarget.length;i++){
+    const c=displayTarget[i];
+    h += i<typedBuffer.length
       ? `<span class="done">${c}</span>`
-      : i===pos
+      : i===typedBuffer.length
         ? `<span class="current">${c}</span>`
         : c;
   }
   $('roman').innerHTML=h;
   $('jp').textContent=jp;
+  updateKeyboardGuide();
 }
 
 function buildDots(){
@@ -354,6 +546,7 @@ function resetChallenge(){
   $('timeoutBtn').disabled=false;
   $('jp').textContent='プレイボール！';
   $('roman').textContent='Enterキーで第1球を投げる';
+  updateKeyboardGuide();
 }
 
 function startPitch(){
@@ -372,7 +565,7 @@ function startPitch(){
   duration=+$('duration').value;
   const w=words[Math.floor(Math.random()*words.length)];
   jp=w[0];
-  target=w[1];
+  prepareTypingTargets(w[1]);
 
   $('pitchNo').textContent=pitchIndex+1;
   markCurrent();
@@ -479,6 +672,7 @@ function finish(type){
   r.classList.add('show');
   $('jp').textContent=text;
   $('roman').textContent='';
+  updateKeyboardGuide();
   $('time').textContent='--';
   $('timerFill').style.transform='scaleX(1)';
 
@@ -542,15 +736,24 @@ window.addEventListener('keydown',e=>{
   if(!active || e.key.length!==1) return;
 
   const k=e.key.toLowerCase();
+  const candidate=typedBuffer+k;
+  const matches=matchingTargets(candidate);
 
-  if(k===target[pos]){
+  if(matches.length){
     beep(520,.035,'sine',.018);
-    pos++;
+    flashKeyboardKey(k,'correct');
+    typedBuffer=candidate;
+    pos=typedBuffer.length;
+
+    // 入力した経路に合うローマ字表記へ表示も自動で切り替える
+    target=matches[0];
     renderWord();
-    if(pos>=target.length){
+
+    if(acceptedTargets.includes(typedBuffer)){
       finish(misses===0?'hr':misses===1?'hit':'swing');
     }
   }else{
+    flashKeyboardKey(k,'wrong');
     misses++;
     $('miss').textContent=misses;
     beep(95,.07,'square',.035);
@@ -598,3 +801,5 @@ document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
 });
 
 $('resumeBtn').addEventListener('click',resumeTimeout);
+
+updateKeyboardGuide();
