@@ -346,6 +346,7 @@ const ROMAJI_MAP = {
   'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
   'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
   'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
+  'でぃ':['dhi','dxi'],
   'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
   'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
 
@@ -394,7 +395,8 @@ function kanaToRomajiVariants(source){
       ['cho','tyo'],['tyo','cho'],
       ['tsu','tu'],['tu','tsu'],
       ['fu','hu'],['hu','fu'],
-      ['ji','zi'],['zi','ji']
+      ['ji','zi'],['zi','ji'],
+      ['dhi','dxi'],['dxi','dhi']
     ];
     // 複数箇所の表記揺れにもある程度対応
     let pool=[s];
