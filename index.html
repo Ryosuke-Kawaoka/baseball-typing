@@ -8,7 +8,7 @@
 </head><body><div id="app">
 <div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
 <div class="hud">
- <div class="panel controls"><label>投球時間 <select id="duration"><option value="10">10秒</option><option value="7">7秒</option><option value="5">5秒</option></select></label><button id="start">10球チャレンジ開始</button></div>
+ <div class="panel controls"><label>投球時間 <select id="duration"><option value="10">10秒</option><option value="7">7秒</option><option value="5">5秒</option></select></label><button id="start">10球チャレンジ開始</button><button id="wordSettingsBtn" type="button">単語を編集</button><button id="timeoutBtn" type="button">タイム</button></div>
  <div class="panel score"><span>第 <b id="pitchNo">0</b>/10球</span><span>ホームラン <b id="hrs">0</b>本</span></div>
 </div>
 <div class="challengeStatus"><div class="pitchDots" id="pitchDots"></div><div class="legend">金＝ホームラン　緑＝ヒット　赤＝空振り/見逃し　青＝ボール</div></div>
@@ -30,8 +30,60 @@
     <div class="key" data-key="z">Z</div><div class="key" data-key="x">X</div><div class="key" data-key="c">C</div><div class="key" data-key="v">V</div><div class="key" data-key="b">B</div><div class="key" data-key="n">N</div><div class="key" data-key="m">M</div>
   </div>
 </div>
-
 <div class="help">※試作版：IMEはOFF（半角英数）がおすすめ</div>
 </div></div>
+
+
+
+
+<div id="timeoutModal" class="timeoutModal" aria-hidden="true">
+  <div class="timeoutCard">
+    <div class="timeoutTitle">タイム</div>
+    <div class="timeoutText">投球時間を選び直せます</div>
+    <div class="timeoutChoices">
+      <button type="button" data-seconds="10">10秒</button>
+      <button type="button" data-seconds="7">7秒</button>
+      <button type="button" data-seconds="5">5秒</button>
+    </div>
+    <div class="timeoutCurrent">現在：<b id="timeoutCurrent">10秒</b></div>
+    <button id="resumeBtn" class="resumeBtn" type="button">再開する</button>
+  </div>
+</div>
+
+<div id="wordModal" class="wordModal" aria-hidden="true">
+  <div class="wordModalCard">
+    <button id="closeWordsX" class="wordCloseX" type="button" aria-label="閉じる">×</button>
+    <div class="wordModalIcon">✦</div>
+    <div class="wordModalTitle">単語の設定</div>
+    <div class="wordModalHelp">
+      すべての文字に、ローマ字入力のもとになる「ふりがな」を設定してください。<br>
+      改行した一覧を貼り付けると、1行ずつ下の欄へ展開されます。最大100個まで登録できます。
+    </div>
+
+    <div class="wordGridHeader">
+      <span>表示する文字</span>
+      <span>ふりがな</span>
+      <span></span>
+    </div>
+
+    <div id="wordRows" class="wordRows"></div>
+
+    <div class="wordModalFooter">
+      <div class="wordCountText"><span id="wordCount">0</span> / 100</div>
+      <button id="addWordRowBtn" type="button">＋ 1行追加</button>
+    </div>
+
+    <div class="wordModalActions">
+      <button id="resetWordsBtn" type="button">初期単語に戻す</button>
+      <button id="closeWordsBtn" type="button">キャンセル</button>
+      <button id="saveWordsBtn" type="button" class="primary">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div id="kakushinOverlay" class="kakushinOverlay" aria-hidden="true">
+  <img src="kakushin.png" alt="確信ホームラン演出">
+</div>
+
 <div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
 <script src="script.js"></script></body></html>
