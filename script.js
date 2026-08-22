@@ -548,6 +548,7 @@ function resetChallenge(){
   $('summary').classList.remove('show');
   $('start').disabled=true;
   $('duration').disabled=true;
+  if($('timeoutBtn')) $('timeoutBtn').disabled=false;
   $('timeoutBtn').disabled=false;
   $('jp').textContent='プレイボール！';
   $('roman').textContent='Enterキーで第1球を投げる';
@@ -624,7 +625,7 @@ function showKakushinHomerun(){
 }
 
 function finish(type){
-  if(!active) return;
+  if(!active || paused) return;
 
   active=false;
   cancelAnimationFrame(raf);
@@ -707,6 +708,7 @@ function endChallenge(){
   paused=false;
   $('start').disabled=false;
   $('duration').disabled=false;
+  if($('timeoutBtn')) $('timeoutBtn').disabled=true;
   $('timeoutBtn').disabled=true;
   $('pitcher').src=frames[0];
   $('finalHR').textContent=hrs;

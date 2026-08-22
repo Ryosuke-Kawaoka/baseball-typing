@@ -4,11 +4,22 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>タイピング ホームランチャレンジ</title>
-<link rel="stylesheet" href="style.css?v=14" />
+<link rel="stylesheet" href="style.css?v=15" />
 </head><body><div id="app">
 <div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
 <div class="hud">
- <div class="panel controls"><label>投球時間 <select id="duration"><option value="10">10秒</option><option value="7">7秒</option><option value="5">5秒</option></select></label><button id="start">10球チャレンジ開始</button><button id="wordSettingsBtn" type="button">単語を編集</button><button id="timeoutBtn" type="button">タイム</button></div>
+ <div class="panel controls">
+<label>投球時間
+<select id="duration">
+<option value="10">10秒</option>
+<option value="7">7秒</option>
+<option value="5">5秒</option>
+</select>
+</label>
+<button id="start">10球チャレンジ開始</button>
+<button id="wordSettingsBtn" type="button">単語を編集</button>
+<button id="timeoutBtn" type="button">タイム</button>
+</div>
  <div class="panel score"><span>第 <b id="pitchNo">0</b>/10球</span><span>ホームラン <b id="hrs">0</b>本</span></div>
 </div>
 <div class="challengeStatus"><div class="pitchDots" id="pitchDots"></div><div class="legend">金＝ホームラン　緑＝ヒット　赤＝空振り/見逃し　青＝ボール</div></div>
@@ -80,10 +91,9 @@
     </div>
   </div>
 </div>
-
 <div id="kakushinOverlay" class="kakushinOverlay" aria-hidden="true">
   <img src="kakushin.png" alt="確信ホームラン演出">
 </div>
 
 <div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
-<script src="script.js?v=14"></script></body></html>
+<script src="script.js?v=15"></script></body></html>
