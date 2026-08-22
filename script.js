@@ -757,7 +757,7 @@ window.addEventListener('keydown',e=>{
     renderWord();
 
     if(acceptedTargets.includes(typedBuffer)){
-      finish(misses===0?'hr':misses===1?'hit':'swing');
+      finish(misses===0?'hr':misses<=2?'hit':'swing');
     }
   }else{
     flashKeyboardKey(k,'wrong');
