@@ -406,3 +406,45 @@ select{background:#fff;color:#111}
 @media(max-width:620px){
   .dragHint{display:none}
 }
+
+/* ===== v29: actual draggable appearance menu ===== */
+#appearanceModal.appearanceModal{
+  pointer-events:none !important;
+  background:rgba(2,8,18,.12) !important;
+  backdrop-filter:none !important;
+}
+#appearanceModal .appearanceCard{
+  pointer-events:auto !important;
+  position:fixed !important;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  margin:0 !important;
+}
+#appearanceDragHandle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:46px;
+  margin:-4px 36px 10px 0;
+  padding:7px 10px;
+  border-radius:10px;
+  cursor:grab;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+  font-size:1.28rem;
+  font-weight:900;
+  background:rgba(255,255,255,.055);
+}
+#appearanceDragHandle:active{cursor:grabbing}
+#appearanceDragHandle .dragGrip{font-size:1.4rem;opacity:.75}
+#appearanceDragHandle .dragHint{
+  margin-left:auto;
+  font-size:.72rem;
+  opacity:.6;
+  font-weight:700;
+}
+#appearanceModal .appearanceCard.isDragging{
+  box-shadow:0 30px 90px rgba(0,0,0,.72) !important;
+}
