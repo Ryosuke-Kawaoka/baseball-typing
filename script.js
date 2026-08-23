@@ -47,6 +47,7 @@ const DEFAULT_APPEARANCE = {
   pitcherX:50,
   pitcherY:0,
   pitcherScale:100,
+  ballReleaseY:-10,
   keyboardX:50,
   keyboardY:0,
   keyboardScale:100,
@@ -506,18 +507,15 @@ function rebuildStadiumSelectors(){
 
 
 function currentBallReleaseYOffset(){
-  try{
-    return appFor(selectedStadiumId).ballReleaseY ?? -10;
-  }catch(e){
-    return -10;
-  }
+  const a = appearanceFor(state.selectedStadiumId);
+  const v = Number(a.ballReleaseY);
+  return Number.isFinite(v) ? v : -10;
 }
 
 function updateBallReleasePreview(){
-  const preview=$('ballReleasePreview');
-  if(!preview)return;
-  const y=currentBallReleaseYOffset();
-  preview.style.top=`calc(8% + ${y}px)`;
+  const preview = $('ballReleasePreview');
+  if(!preview) return;
+  preview.style.top = `calc(8% + ${currentBallReleaseYOffset()}px)`;
 }
 
 function applyAppearance(){
@@ -543,6 +541,7 @@ function applyAppearance(){
   wordPanel.style.left = `${appearance.wordX}%`;
   wordPanel.style.bottom = `calc(23% + ${appearance.wordY}px)`;
   wordPanel.style.transform = `translateX(-50%) scale(${appearance.wordScale/100})`;
+  updateBallReleasePreview();
 }
 
 function syncAppearanceControls(){
@@ -550,6 +549,7 @@ function syncAppearanceControls(){
   const controls = {
     bgPosX:a.bgX,bgPosY:a.bgY,bgScale:a.bgScale,
     pitcherPosX:a.pitcherX,pitcherPosY:a.pitcherY,pitcherScale:a.pitcherScale,
+    ballReleaseY:a.ballReleaseY,
     keyboardPosX:a.keyboardX,keyboardPosY:a.keyboardY,keyboardScale:a.keyboardScale,
     wordPanelPosX:a.wordX,wordPanelPosY:a.wordY,wordPanelScale:a.wordScale
   };
@@ -561,6 +561,7 @@ function syncAppearanceControls(){
   $('pitcherPosXValue').textContent = `${a.pitcherX}%`;
   $('pitcherPosYValue').textContent = `${a.pitcherY}px`;
   $('pitcherScaleValue').textContent = `${a.pitcherScale}%`;
+  if($('ballReleaseYValue')) $('ballReleaseYValue').textContent = `${a.ballReleaseY}px`;
   $('keyboardPosXValue').textContent = `${a.keyboardX}%`;
   $('keyboardPosYValue').textContent = `${a.keyboardY}px`;
   $('keyboardScaleValue').textContent = `${a.keyboardScale}%`;
@@ -578,6 +579,7 @@ function updateAppearanceFromControls(){
     pitcherX:+$('pitcherPosX').value,
     pitcherY:+$('pitcherPosY').value,
     pitcherScale:+$('pitcherScale').value,
+    ballReleaseY:+$('ballReleaseY').value,
     keyboardX:+$('keyboardPosX').value,
     keyboardY:+$('keyboardPosY').value,
     keyboardScale:+$('keyboardScale').value,
@@ -588,6 +590,7 @@ function updateAppearanceFromControls(){
   saveAppearanceStore();
   syncAppearanceControls();
   applyAppearance();
+  updateBallReleasePreview();
 }
 
 function selectStadium(id){
@@ -784,7 +787,7 @@ function startPitch(){
 
   state.startAt = performance.now();
   $('ball').style.opacity = '1';
-  $('ball').style.top = `calc(8% + ${BALL_RELEASE_Y_OFFSET}px)`;
+  $('ball').style.top=`calc(8% + ${currentBallReleaseYOffset()}px)`;
   $('ball').style.transform = 'translate(-50%,-50%) scale(.55)';
   $('ball').style.filter = 'blur(0px)';
   state.raf = requestAnimationFrame(tick);
@@ -801,7 +804,7 @@ function tick(now){
 
   const scale = .55 + progress*10.5;
   const top = 8 + progress*65;
-  $('ball').style.top = `calc(${top}% + ${BALL_RELEASE_Y_OFFSET}px)`;
+  $('ball').style.top=`calc(${top}% + ${currentBallReleaseYOffset()}px)`;
   $('ball').style.transform = `translate(-50%,-50%) scale(${scale})`;
   $('ball').style.filter = `blur(${Math.max(0,progress-.82)*8}px)`;
 
@@ -1235,3 +1238,5 @@ if($('appearanceDragHandle')){
 }
 
 window.addEventListener('resize',keepAppearancePanelOnScreen);
+
+if($('ballReleaseY')) $('ballReleaseY').addEventListener('input',updateAppearance);
