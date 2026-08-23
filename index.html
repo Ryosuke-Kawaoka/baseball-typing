@@ -1,122 +1,140 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>タイピング ホームランチャレンジ</title>
-<link rel="stylesheet" href="style.css?v=25" />
-</head><body><div id="app">
-<div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
-<div class="hud">
- <div class="panel controls">
-<label>投球時間
-<select id="duration">
-<option value="20">20秒</option>
-<option value="10">10秒</option>
-<option value="7">7秒</option>
-<option value="5">5秒</option>
-</select>
-</label>
-<button id="appearanceBtn" type="button">見た目の変更</button>
-<button id="start">10球チャレンジ開始</button>
-<label class="bgSelectLabel">背景
-<select id="backgroundSelect">
-<option value="escon">エスコンフィールド</option>
-<option value="dodgers">ドジャースタジアム</option>
-</select>
-</label>
-<button id="wordSettingsBtn" type="button">単語を編集</button>
-<button id="timeoutBtn" type="button">タイム</button>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>タイピング ホームランチャレンジ</title>
+  <link rel="stylesheet" href="style.css?v=27">
+</head>
+<body>
+<div id="app">
+  <header class="hud">
+    <div class="panel controls">
+      <label class="controlGroup">投球時間
+        <select id="duration">
+          <option value="20">20秒</option>
+          <option value="10">10秒</option>
+          <option value="7">7秒</option>
+          <option value="5">5秒</option>
+        </select>
+      </label>
+      <button id="appearanceBtn" type="button">見た目の変更</button>
+      <button id="start" type="button">10球チャレンジ開始</button>
+      <label class="controlGroup bgSelectLabel">背景
+        <select id="backgroundSelect"></select>
+      </label>
+      <button id="wordSettingsBtn" type="button">単語を編集</button>
+      <button id="timeoutBtn" type="button">タイム</button>
+    </div>
+    <div class="panel score">
+      <span>第 <b id="pitchNo">0</b>/10球</span>
+      <span>ホームラン <b id="hrs">0</b>本</span>
+    </div>
+  </header>
+
+  <section class="challengeStatus" aria-label="10球の結果">
+    <div class="pitchDots" id="pitchDots"></div>
+    <div class="legend">金＝ホームラン　緑＝ヒット　赤＝空振り/見逃し　青＝ボール</div>
+  </section>
+
+  <main class="game" id="game">
+    <div class="pitcherWrap"><img id="pitcher" alt="投手"></div>
+    <div id="ball" aria-hidden="true"></div>
+    <div id="result" aria-live="polite"></div>
+
+    <section class="wordPanel">
+      <div class="jp" id="jp">スペースキーでゲームスタート</div>
+      <div class="roman" id="roman">スタート後、Enterキーで投球！</div>
+      <div class="meta">
+        <span>ミス: <b id="miss">0</b></span>
+        <span>残り: <b id="time">--</b> 秒</span>
+      </div>
+      <div class="timerBar"><div id="timerFill"></div></div>
+    </section>
+
+    <section id="keyboardGuide" class="keyboardGuide" aria-label="キーボードガイド">
+      <div class="keyboardGuideHead">
+        <span class="keyboardTitle">つぎに おす キー</span>
+        <span id="nextKeyLabel" class="nextKeyLabel">-</span>
+      </div>
+      <div class="keyboardRow">
+        <div class="key" data-key="q">Q</div><div class="key" data-key="w">W</div><div class="key" data-key="e">E</div><div class="key" data-key="r">R</div><div class="key" data-key="t">T</div><div class="key" data-key="y">Y</div><div class="key" data-key="u">U</div><div class="key" data-key="i">I</div><div class="key" data-key="o">O</div><div class="key" data-key="p">P</div>
+      </div>
+      <div class="keyboardRow row2">
+        <div class="key" data-key="a">A</div><div class="key" data-key="s">S</div><div class="key" data-key="d">D</div><div class="key" data-key="f">F</div><div class="key" data-key="g">G</div><div class="key" data-key="h">H</div><div class="key" data-key="j">J</div><div class="key" data-key="k">K</div><div class="key" data-key="l">L</div>
+      </div>
+      <div class="keyboardRow row3">
+        <div class="key" data-key="z">Z</div><div class="key" data-key="x">X</div><div class="key" data-key="c">C</div><div class="key" data-key="v">V</div><div class="key" data-key="b">B</div><div class="key" data-key="n">N</div><div class="key" data-key="m">M</div>
+      </div>
+    </section>
+
+    <div class="help">※IMEはOFF（半角英数）がおすすめ</div>
+  </main>
 </div>
- <div class="panel score"><span>第 <b id="pitchNo">0</b>/10球</span><span>ホームラン <b id="hrs">0</b>本</span></div>
-</div>
-<div class="challengeStatus"><div class="pitchDots" id="pitchDots"></div><div class="legend">金＝ホームラン　緑＝ヒット　赤＝空振り/見逃し　青＝ボール</div></div>
-<div class="game" id="game">
- <div class="pitcherWrap"><img id="pitcher" alt="投手"></div><div id="ball"></div>
- <div id="result"></div>
- <div class="wordPanel"><div class="jp" id="jp">スペースキーでゲームスタート</div><div class="roman" id="roman">スタート後、Enterキーで投球！</div><div class="meta"><span>ミス: <b id="miss">0</b></span><span>残り: <b id="time">--</b> 秒</span></div><div class="timerBar"><div id="timerFill"></div></div></div>
- 
-<div id="keyboardGuide" class="keyboardGuide" aria-label="キーボードガイド">
-  <div class="keyboardTitle">つぎに おす キー</div>
-  <div id="nextKeyLabel" class="nextKeyLabel">-</div>
-  <div class="keyboardRow">
-    <div class="key" data-key="q">Q</div><div class="key" data-key="w">W</div><div class="key" data-key="e">E</div><div class="key" data-key="r">R</div><div class="key" data-key="t">T</div><div class="key" data-key="y">Y</div><div class="key" data-key="u">U</div><div class="key" data-key="i">I</div><div class="key" data-key="o">O</div><div class="key" data-key="p">P</div>
+
+<!-- 見た目の変更 -->
+<div id="appearanceModal" class="modal appearanceModal" aria-hidden="true">
+  <div class="modalCard appearanceCard">
+    <button id="appearanceCloseX" class="modalClose" type="button" aria-label="閉じる">×</button>
+    <h2>見た目の変更</h2>
+    <p class="modalIntro">スライダーを動かすと、その場でゲーム画面に反映されます。</p>
+
+    <section class="appearanceSection">
+      <h3>球場背景</h3>
+      <div class="appearanceRow"><label for="appearanceBgSelect">球場</label><select id="appearanceBgSelect"></select><span></span></div>
+      <div class="appearanceRow"><label for="bgPosX">背景・左右</label><input id="bgPosX" type="range" min="0" max="100" step="1"><output id="bgPosXValue"></output></div>
+      <div class="appearanceRow"><label for="bgPosY">背景・上下</label><input id="bgPosY" type="range" min="0" max="100" step="1"><output id="bgPosYValue"></output></div>
+      <div class="appearanceRow"><label for="bgScale">背景・拡大</label><input id="bgScale" type="range" min="70" max="220" step="1"><output id="bgScaleValue"></output></div>
+    </section>
+
+    <section class="appearanceSection">
+      <h3>投手</h3>
+      <div class="appearanceRow"><label for="pitcherPosX">左右</label><input id="pitcherPosX" type="range" min="0" max="100" step=".5"><output id="pitcherPosXValue"></output></div>
+      <div class="appearanceRow"><label for="pitcherPosY">上下</label><input id="pitcherPosY" type="range" min="-150" max="250" step="1"><output id="pitcherPosYValue"></output></div>
+      <div class="appearanceRow"><label for="pitcherScale">大きさ</label><input id="pitcherScale" type="range" min="50" max="220" step="1"><output id="pitcherScaleValue"></output></div>
+    </section>
+
+    <section class="appearanceSection">
+      <h3>キーボード</h3>
+      <div class="appearanceRow"><label for="keyboardPosX">左右</label><input id="keyboardPosX" type="range" min="0" max="100" step=".5"><output id="keyboardPosXValue"></output></div>
+      <div class="appearanceRow"><label for="keyboardPosY">上下</label><input id="keyboardPosY" type="range" min="-250" max="250" step="1"><output id="keyboardPosYValue"></output></div>
+      <div class="appearanceRow"><label for="keyboardScale">大きさ</label><input id="keyboardScale" type="range" min="50" max="160" step="1"><output id="keyboardScaleValue"></output></div>
+    </section>
+
+    <section class="appearanceSection">
+      <h3>出題文字</h3>
+      <div class="appearanceRow"><label for="wordPanelPosX">左右</label><input id="wordPanelPosX" type="range" min="0" max="100" step=".5"><output id="wordPanelPosXValue"></output></div>
+      <div class="appearanceRow"><label for="wordPanelPosY">上下</label><input id="wordPanelPosY" type="range" min="-250" max="250" step="1"><output id="wordPanelPosYValue"></output></div>
+      <div class="appearanceRow"><label for="wordPanelScale">大きさ</label><input id="wordPanelScale" type="range" min="60" max="160" step="1"><output id="wordPanelScaleValue"></output></div>
+    </section>
+
+    <section class="appearanceSection">
+      <h3>球場を追加</h3>
+      <p class="sectionHelp">球場名と画像を登録すると、このブラウザの背景一覧に保存されます。</p>
+      <div class="uploadGrid">
+        <input id="stadiumNameInput" type="text" maxlength="40" placeholder="例：甲子園球場">
+        <label class="filePickButton">画像を選ぶ<input id="stadiumFileInput" type="file" accept="image/*"></label>
+        <button id="stadiumUploadBtn" type="button">追加する</button>
+      </div>
+      <div id="stadiumFileName" class="stadiumFileName">画像未選択</div>
+      <div id="customStadiumList" class="customStadiumList"></div>
+    </section>
+
+    <div class="modalActions">
+      <button id="appearanceResetBtn" type="button">この球場の設定をリセット</button>
+      <button id="appearanceDoneBtn" type="button" class="primary">決定</button>
+    </div>
   </div>
-  <div class="keyboardRow row2">
-    <div class="key" data-key="a">A</div><div class="key" data-key="s">S</div><div class="key" data-key="d">D</div><div class="key" data-key="f">F</div><div class="key" data-key="g">G</div><div class="key" data-key="h">H</div><div class="key" data-key="j">J</div><div class="key" data-key="k">K</div><div class="key" data-key="l">L</div>
-  </div>
-  <div class="keyboardRow row3">
-    <div class="key" data-key="z">Z</div><div class="key" data-key="x">X</div><div class="key" data-key="c">C</div><div class="key" data-key="v">V</div><div class="key" data-key="b">B</div><div class="key" data-key="n">N</div><div class="key" data-key="m">M</div>
-  </div>
-</div>
-<div class="help">※試作版：IMEはOFF（半角英数）がおすすめ</div>
-</div></div>
-
-
-
-
-
-<div id="appearanceModal" class="appearanceModal" aria-hidden="true">
-<div class="appearanceCard">
-<button id="appearanceCloseX" class="appearanceCloseX" type="button">×</button>
-<div class="appearanceTitle">見た目の変更</div>
-<div class="appearanceSub">背景と投手を、ゲーム画面を見ながら調整できます。</div>
-
-<div class="appearanceSection">
-<div class="appearanceSectionTitle">球場背景</div>
-<div class="appearanceRow"><label>球場</label><select id="appearanceBgSelect"></select><span></span></div>
-<div class="appearanceRow"><label>背景・左右</label><input id="bgPosX" type="range" min="0" max="100" step="1"><output id="bgPosXValue"></output></div>
-<div class="appearanceRow"><label>背景・上下</label><input id="bgPosY" type="range" min="0" max="100" step="1"><output id="bgPosYValue"></output></div>
-<div class="appearanceRow"><label>背景・拡大</label><input id="bgScale" type="range" min="70" max="220" step="1"><output id="bgScaleValue"></output></div>
 </div>
 
-<div class="appearanceSection">
-<div class="appearanceSectionTitle">投手</div>
-<div class="appearanceRow"><label>投手・左右</label><input id="pitcherPosX" type="range" min="0" max="100" step=".5"><output id="pitcherPosXValue"></output></div>
-<div class="appearanceRow"><label>投手・上下</label><input id="pitcherPosY" type="range" min="-150" max="250" step="1"><output id="pitcherPosYValue"></output></div>
-<div class="appearanceRow"><label>投手・大きさ</label><input id="pitcherScale" type="range" min="50" max="220" step="1"><output id="pitcherScaleValue"></output></div>
-</div>
-
-
-<div class="appearanceSection">
-<div class="appearanceSectionTitle">キーボード</div>
-<div class="appearanceRow"><label>左右</label><input id="keyboardPosX" type="range" min="0" max="100" step=".5"><output id="keyboardPosXValue"></output></div>
-<div class="appearanceRow"><label>上下</label><input id="keyboardPosY" type="range" min="-250" max="250" step="1"><output id="keyboardPosYValue"></output></div>
-<div class="appearanceRow"><label>大きさ</label><input id="keyboardScale" type="range" min="50" max="160" step="1"><output id="keyboardScaleValue"></output></div>
-</div>
-
-<div class="appearanceSection">
-<div class="appearanceSectionTitle">出題文字</div>
-<div class="appearanceRow"><label>左右</label><input id="wordPanelPosX" type="range" min="0" max="100" step=".5"><output id="wordPanelPosXValue"></output></div>
-<div class="appearanceRow"><label>上下</label><input id="wordPanelPosY" type="range" min="-250" max="250" step="1"><output id="wordPanelPosYValue"></output></div>
-<div class="appearanceRow"><label>大きさ</label><input id="wordPanelScale" type="range" min="60" max="160" step="1"><output id="wordPanelScaleValue"></output></div>
-</div>
-
-<div class="appearanceSection">
-<div class="appearanceSectionTitle">球場を追加</div>
-<div class="uploadHelp">球場名を入力して画像を選ぶと、このブラウザの背景一覧に追加されます。</div>
-<div class="uploadGrid">
-<input id="stadiumNameInput" type="text" maxlength="40" placeholder="例：甲子園球場">
-<label class="filePickButton">画像を選ぶ<input id="stadiumFileInput" type="file" accept="image/*"></label>
-<button id="stadiumUploadBtn" type="button">追加する</button>
-</div>
-<div id="stadiumFileName" class="stadiumFileName">画像未選択</div>
-<div id="customStadiumList" class="customStadiumList"></div>
-</div>
-
-<div class="appearanceActions">
-<button id="appearanceResetBtn" type="button">この球場の設定をリセット</button>
-<button id="appearanceDoneBtn" type="button" class="primary">決定</button>
-</div>
-</div>
-</div>
-<div id="timeoutModal" class="timeoutModal" aria-hidden="true">
-  <div class="timeoutCard">
-    <div class="timeoutTitle">タイム</div>
-    <div class="timeoutText">投球時間を選び直せます</div>
+<!-- タイム -->
+<div id="timeoutModal" class="modal timeoutModal" aria-hidden="true">
+  <div class="modalCard timeoutCard">
+    <h2>タイム</h2>
+    <p class="modalIntro">投球時間を選び直せます。</p>
     <div class="timeoutChoices">
       <button type="button" data-seconds="20">20秒</button>
-<button type="button" data-seconds="10">10秒</button>
+      <button type="button" data-seconds="10">10秒</button>
       <button type="button" data-seconds="7">7秒</button>
       <button type="button" data-seconds="5">5秒</button>
     </div>
@@ -125,39 +143,40 @@
   </div>
 </div>
 
-<div id="wordModal" class="wordModal" aria-hidden="true">
-  <div class="wordModalCard">
-    <button id="closeWordsX" class="wordCloseX" type="button" aria-label="閉じる">×</button>
+<!-- 単語設定 -->
+<div id="wordModal" class="modal wordModal" aria-hidden="true">
+  <div class="modalCard wordModalCard">
+    <button id="closeWordsX" class="modalClose" type="button" aria-label="閉じる">×</button>
     <div class="wordModalIcon">✦</div>
-    <div class="wordModalTitle">単語の設定</div>
-    <div class="wordModalHelp">
-      すべての文字に、ローマ字入力のもとになる「ふりがな」を設定してください。<br>
-      改行した一覧を貼り付けると、1行ずつ下の欄へ展開されます。最大100個まで登録できます。
-    </div>
-
-    <div class="wordGridHeader">
-      <span>表示する文字</span>
-      <span>ふりがな</span>
-      <span></span>
-    </div>
-
+    <h2>単語の設定</h2>
+    <p class="modalIntro">「表示する文字」と「ふりがな」を設定してください。改行した一覧を貼り付けると1行ずつ展開されます。最大100個です。</p>
+    <div class="wordGridHeader"><span>表示する文字</span><span>ふりがな</span><span></span></div>
     <div id="wordRows" class="wordRows"></div>
-
     <div class="wordModalFooter">
       <div class="wordCountText"><span id="wordCount">0</span> / 100</div>
       <button id="addWordRowBtn" type="button">＋ 1行追加</button>
     </div>
-
-    <div class="wordModalActions">
+    <div class="modalActions">
       <button id="resetWordsBtn" type="button">初期単語に戻す</button>
       <button id="closeWordsBtn" type="button">キャンセル</button>
       <button id="saveWordsBtn" type="button" class="primary">保存する</button>
     </div>
   </div>
 </div>
+
 <div id="kakushinOverlay" class="kakushinOverlay" aria-hidden="true">
   <img src="kakushin.png" alt="確信ホームラン演出">
 </div>
 
-<div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
-<script src="script.js?v=25"></script></body></html>
+<div id="summary" class="summary">
+  <div class="summaryCard">
+    <div class="summaryTitle">ホームランチャレンジ 結果</div>
+    <div class="summaryNumber"><span id="finalHR">0</span>本</div>
+    <div id="finalText" class="summaryText"></div>
+    <button id="again" type="button">もう一度チャレンジ</button>
+  </div>
+</div>
+
+<script src="script.js?v=27"></script>
+</body>
+</html>

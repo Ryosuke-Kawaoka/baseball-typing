@@ -1,112 +1,561 @@
-const frames = Array.from({length:10}, (_,i) => `pitcher_frames/frame_${String(i+1).padStart(2,'0')}.png`);
+'use strict';
 
-const defaultWords=[
+/* =========================================================
+   タイピング ホームランチャレンジ v27
+   - ゲーム進行
+   - ローマ字入力
+   - 単語設定
+   - タイム
+   - 球場/見た目設定
+   を機能ごとに分けて管理する安定版
+   ========================================================= */
+
+const $ = id => document.getElementById(id);
+const $$ = selector => [...document.querySelectorAll(selector)];
+
+/* ---------- 定数 ---------- */
+const TOTAL_PITCHES = 10;
+const BALL_RELEASE_Y_OFFSET = -10;
+const WORD_STORAGE_KEY = 'typingBaseballCustomWordsV1';
+const BG_STORAGE_KEY = 'typingBaseballBackgroundV2';
+const APPEARANCE_STORAGE_KEY = 'typingBaseballAppearanceV2';
+const STADIUM_DB_NAME = 'typingBaseballStadiumDB';
+const STADIUM_STORE = 'stadiums';
+const MAX_WORDS = 100;
+
+const PITCHER_FRAMES = Array.from(
+  {length:10},
+  (_,i) => `pitcher_frames/frame_${String(i+1).padStart(2,'0')}.png`
+);
+
+const DEFAULT_WORDS = [
   ['ねこ','neko'],['いぬ','inu'],['すし','sushi'],['くるま','kuruma'],
   ['さくら','sakura'],['でんしゃ','densha'],['やきゅう','yakyuu'],
   ['りんご','ringo'],['うさぎ','usagi'],['ひこうき','hikouki'],
   ['きょうりゅう','kyouryuu'],['しょうぼうしゃ','shoubousha']
 ];
 
-const WORD_STORAGE_KEY='typingBaseballCustomWordsV1';
+const BUILTIN_STADIUMS = [
+  {id:'escon', name:'エスコンフィールド', url:'stadium_escon.png', builtin:true},
+  {id:'dodgers', name:'ドジャースタジアム', url:'stadium_dodgers.jpg', builtin:true}
+];
 
+const DEFAULT_APPEARANCE = {
+  bgX:50,
+  bgY:50,
+  bgScale:100,
+  pitcherX:50,
+  pitcherY:0,
+  pitcherScale:100,
+  keyboardX:50,
+  keyboardY:0,
+  keyboardScale:100,
+  wordX:50,
+  wordY:0,
+  wordScale:100
+};
+
+/* ---------- 状態 ---------- */
+const state = {
+  active:false,
+  challenge:false,
+  paused:false,
+  target:'',
+  acceptedTargets:[],
+  typedBuffer:'',
+  jp:'',
+  misses:0,
+  hrs:0,
+  pitchIndex:0,
+  duration:10,
+  startAt:0,
+  raf:null,
+  animTimers:[],
+  nextTimer:null,
+  selectedDuration:null,
+  pausedElapsed:0,
+  pauseBallState:null,
+  lastWordKey:null,
+  selectedStadiumId:'escon',
+  selectedCustomFile:null
+};
+
+let words = loadWords();
+let stadiumLibrary = [...BUILTIN_STADIUMS];
+let appearanceStore = loadAppearanceStore();
+
+/* ---------- 音 ---------- */
+const sfx = {
+  hit:new Audio('hit.mp3'),
+  homerun:new Audio('homerun.mp3'),
+  strike:new Audio('strike.mp3')
+};
+Object.values(sfx).forEach(audio => { audio.preload = 'auto'; });
+
+function playSfx(name){
+  const audio = sfx[name];
+  if(!audio) return;
+  try{
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play().catch(()=>{});
+  }catch(_e){}
+}
+
+function beep(freq=440,dur=.08,type='sine',gain=.04){
+  try{
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const ctx = window._typingGameAudioContext || (window._typingGameAudioContext = new AudioContextClass());
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    amp.gain.value = gain;
+    osc.connect(amp);
+    amp.connect(ctx.destination);
+    osc.start();
+    amp.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);
+    osc.stop(ctx.currentTime+dur);
+  }catch(_e){}
+}
+
+/* =========================================================
+   単語データ
+   ========================================================= */
 function loadWords(){
   try{
-    const saved=JSON.parse(localStorage.getItem(WORD_STORAGE_KEY));
-    if(Array.isArray(saved) && saved.length){
-      return saved.filter(w=>Array.isArray(w) && w.length>=2 && String(w[0]).trim() && String(w[1]).trim());
+    const saved = JSON.parse(localStorage.getItem(WORD_STORAGE_KEY));
+    if(Array.isArray(saved)){
+      const valid = saved.filter(w => Array.isArray(w) && String(w[0]||'').trim() && String(w[1]||'').trim());
+      if(valid.length) return valid.slice(0,MAX_WORDS);
     }
-  }catch(e){}
-  return defaultWords.map(w=>[...w]);
+  }catch(_e){}
+  return DEFAULT_WORDS.map(w => [...w]);
 }
 
-let words=loadWords();
+function saveWords(){
+  try{ localStorage.setItem(WORD_STORAGE_KEY,JSON.stringify(words)); }
+  catch(_e){}
+}
 
-const $ = id => document.getElementById(id);
+function makeWordRow(label='',kana=''){
+  const row = document.createElement('div');
+  row.className = 'wordRow';
 
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.className = 'wordLabelInput';
+  labelInput.placeholder = '表示する文字';
+  labelInput.value = label;
 
+  const kanaInput = document.createElement('input');
+  kanaInput.type = 'text';
+  kanaInput.className = 'wordKanaInput';
+  kanaInput.placeholder = 'ふりがな';
+  kanaInput.value = kana;
 
-const BG_STORAGE_KEY='typingBaseballBackgroundV2';
-const APPEARANCE_STORAGE_KEY='typingBaseballAppearanceV2';
-const DB_NAME='typingBaseballStadiumDB', STORE='stadiums';
-const BUILTIN=[
-{id:'escon',name:'エスコンフィールド',url:'stadium_escon.png',builtin:true},
-{id:'dodgers',name:'ドジャースタジアム',url:'stadium_dodgers.jpg',builtin:true}
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'wordDeleteBtn';
+  del.textContent = '×';
+  del.title = '削除';
+
+  del.addEventListener('click',()=>{
+    row.remove();
+    if(!$('wordRows').children.length) addWordRow();
+    updateWordCount();
+  });
+  labelInput.addEventListener('paste',e=>handleMultiLinePaste(e,'label',row));
+  kanaInput.addEventListener('paste',e=>handleMultiLinePaste(e,'kana',row));
+  labelInput.addEventListener('input',updateWordCount);
+  kanaInput.addEventListener('input',updateWordCount);
+
+  row.append(labelInput,kanaInput,del);
+  return row;
+}
+
+function addWordRow(label='',kana='',focus=false){
+  const container = $('wordRows');
+  if(!container || container.children.length >= MAX_WORDS) return null;
+  const row = makeWordRow(label,kana);
+  container.appendChild(row);
+  updateWordCount();
+  if(focus) row.querySelector('.wordLabelInput')?.focus();
+  return row;
+}
+
+function handleMultiLinePaste(e,type,currentRow){
+  const text = e.clipboardData?.getData('text');
+  if(!text || !/[\r\n]/.test(text)) return;
+
+  e.preventDefault();
+  const lines = text.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+  const rows = [...$('wordRows').children];
+  const startIndex = rows.indexOf(currentRow);
+
+  lines.forEach((line,i)=>{
+    if(startIndex+i >= MAX_WORDS) return;
+    let row = $('wordRows').children[startIndex+i];
+    if(!row) row = addWordRow();
+    if(!row) return;
+
+    const comma = line.indexOf(',');
+    if(comma >= 0){
+      row.querySelector('.wordLabelInput').value = line.slice(0,comma).trim();
+      row.querySelector('.wordKanaInput').value = line.slice(comma+1).trim();
+    }else{
+      const input = type==='label'
+        ? row.querySelector('.wordLabelInput')
+        : row.querySelector('.wordKanaInput');
+      input.value = line;
+    }
+  });
+  updateWordCount();
+}
+
+function fillWordRows(list){
+  const container = $('wordRows');
+  container.innerHTML = '';
+  list.slice(0,MAX_WORDS).forEach(([label,kana])=>addWordRow(label,kana));
+  if(!container.children.length) addWordRow();
+  updateWordCount();
+}
+
+function collectWordRows(){
+  return [...$('wordRows').children]
+    .map(row=>[
+      row.querySelector('.wordLabelInput').value.trim(),
+      row.querySelector('.wordKanaInput').value.trim()
+    ])
+    .filter(([label,kana])=>label && kana)
+    .slice(0,MAX_WORDS);
+}
+
+function updateWordCount(){
+  if($('wordCount')) $('wordCount').textContent = collectWordRows().length;
+}
+
+function openWordModal(){
+  if(state.active) return;
+  fillWordRows(words);
+  showModal('wordModal');
+}
+
+function saveCustomWords(){
+  const parsed = collectWordRows();
+  if(!parsed.length){
+    alert('「表示する文字」と「ふりがな」を1つ以上登録してください。');
+    return;
+  }
+  words = parsed;
+  saveWords();
+  hideModal('wordModal');
+  $('jp').textContent = `単語を${words.length}語保存しました`;
+  $('roman').textContent = 'スペースキーでゲームスタート';
+}
+
+function resetWords(){
+  words = DEFAULT_WORDS.map(w=>[...w]);
+  try{ localStorage.removeItem(WORD_STORAGE_KEY); }catch(_e){}
+  fillWordRows(words);
+}
+
+/* =========================================================
+   ローマ字入力
+   ========================================================= */
+const ROMAJI_MAP = {
+  'あ':['a'],'い':['i'],'う':['u'],'え':['e'],'お':['o'],
+  'か':['ka'],'き':['ki'],'く':['ku'],'け':['ke'],'こ':['ko'],
+  'さ':['sa'],'し':['shi','si'],'す':['su'],'せ':['se'],'そ':['so'],
+  'た':['ta'],'ち':['chi','ti'],'つ':['tsu','tu'],'て':['te'],'と':['to'],
+  'な':['na'],'に':['ni'],'ぬ':['nu'],'ね':['ne'],'の':['no'],
+  'は':['ha'],'ひ':['hi'],'ふ':['fu','hu'],'へ':['he'],'ほ':['ho'],
+  'ま':['ma'],'み':['mi'],'む':['mu'],'め':['me'],'も':['mo'],
+  'や':['ya'],'ゆ':['yu'],'よ':['yo'],
+  'ら':['ra'],'り':['ri'],'る':['ru'],'れ':['re'],'ろ':['ro'],
+  'わ':['wa'],'を':['wo'],'ん':['n','nn'],'ー':['-'],
+  'が':['ga'],'ぎ':['gi'],'ぐ':['gu'],'げ':['ge'],'ご':['go'],
+  'ざ':['za'],'じ':['ji','zi'],'ず':['zu'],'ぜ':['ze'],'ぞ':['zo'],
+  'だ':['da'],'ぢ':['ji','di'],'づ':['zu','du'],'で':['de'],'ど':['do'],
+  'ば':['ba'],'び':['bi'],'ぶ':['bu'],'べ':['be'],'ぼ':['bo'],
+  'ぱ':['pa'],'ぴ':['pi'],'ぷ':['pu'],'ぺ':['pe'],'ぽ':['po'],
+  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
+  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
+  'ちゃ':['cha','tya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
+  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
+  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
+  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
+  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
+  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
+  'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
+  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
+  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
+  'でぃ':['dhi','dxi'],'てぃ':['thi','txi'],
+  'ふぁ':['fa'],'ふぃ':['fi'],'ふぇ':['fe'],'ふぉ':['fo'],
+  'ぁ':['xa','la'],'ぃ':['xi','li'],'ぅ':['xu','lu'],'ぇ':['xe','le'],'ぉ':['xo','lo'],
+  'ゃ':['xya','lya'],'ゅ':['xyu','lyu'],'ょ':['xyo','lyo'],'っ':['xtu','ltu']
+};
+
+const ROMAJI_SWAPS = [
+  ['shi','si'],['si','shi'],
+  ['sha','sya'],['sya','sha'],['shu','syu'],['syu','shu'],['sho','syo'],['syo','sho'],
+  ['chi','ti'],['ti','chi'],['cha','tya'],['tya','cha'],['chu','tyu'],['tyu','chu'],['cho','tyo'],['tyo','cho'],
+  ['tsu','tu'],['tu','tsu'],['fu','hu'],['hu','fu'],['ji','zi'],['zi','ji'],
+  ['dhi','dxi'],['dxi','dhi']
 ];
-let stadiumLibrary=[...BUILTIN], selectedStadiumId='escon', selectedCustomFile=null;
-const DEFAULT_APP={bgX:50,bgY:50,bgScale:100,pitcherX:50,pitcherY:0,pitcherScale:100,keyboardX:50,keyboardY:0,keyboardScale:100,wordX:50,wordY:0,wordScale:100};
-let appearanceStore=(()=>{try{return JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY))||{}}catch(e){return {}}})();
-const saveAppStore=()=>{try{localStorage.setItem(APPEARANCE_STORAGE_KEY,JSON.stringify(appearanceStore))}catch(e){}};
-const appFor=id=>({...DEFAULT_APP,...(appearanceStore[id]||{})});
 
-function openDB(){return new Promise((ok,ng)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE,{keyPath:'id'})};r.onsuccess=()=>ok(r.result);r.onerror=()=>ng(r.error)})}
-async function dbAll(){try{const d=await openDB();return await new Promise((ok,ng)=>{const r=d.transaction(STORE,'readonly').objectStore(STORE).getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>ng(r.error)})}catch(e){return []}}
-async function dbPut(x){const d=await openDB();return new Promise((ok,ng)=>{const t=d.transaction(STORE,'readwrite');t.objectStore(STORE).put(x);t.oncomplete=ok;t.onerror=()=>ng(t.error)})}
-async function dbDel(id){const d=await openDB();return new Promise((ok,ng)=>{const t=d.transaction(STORE,'readwrite');t.objectStore(STORE).delete(id);t.oncomplete=ok;t.onerror=()=>ng(t.error)})}
-
-function rebuildSelectors(){
-  [$('backgroundSelect'),$('appearanceBgSelect')].filter(Boolean).forEach(sel=>{
-    sel.innerHTML='';stadiumLibrary.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o)});sel.value=selectedStadiumId
-  })
+function katakanaToHiragana(text){
+  return text.replace(/[\u30a1-\u30f6]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
 }
+
+function combineVariants(parts,limit=512){
+  let result = [''];
+  for(const choices of parts){
+    const next = [];
+    for(const base of result){
+      for(const choice of choices){
+        next.push(base+choice);
+        if(next.length >= limit) break;
+      }
+      if(next.length >= limit) break;
+    }
+    result = next;
+  }
+  return [...new Set(result)];
+}
+
+function romanTextVariants(text){
+  let pool = [text.toLowerCase()];
+  for(let round=0; round<3; round++){
+    const additions = [];
+    for(const value of pool){
+      for(const [from,to] of ROMAJI_SWAPS){
+        if(value.includes(from)) additions.push(value.replaceAll(from,to));
+      }
+    }
+    pool = [...new Set([...pool,...additions])].slice(0,512);
+  }
+
+  const expanded = new Set(pool);
+  for(const value of pool){
+    if(value.includes('nn')) expanded.add(value.replaceAll('nn','n'));
+    expanded.add(value.replace(/n(?=[^aiueoyn]|$)/g,'nn'));
+  }
+  return [...expanded].slice(0,512);
+}
+
+function kanaToRomajiVariants(source){
+  const normalized = katakanaToHiragana(String(source||'').trim().toLowerCase());
+  if(/^[a-z-]+$/.test(normalized)) return romanTextVariants(normalized);
+
+  const parts = [];
+  for(let i=0;i<normalized.length;){
+    if(normalized[i] === 'っ'){
+      const two = normalized.slice(i+1,i+3);
+      const one = normalized[i+1];
+      const nextChoices = ROMAJI_MAP[two] || ROMAJI_MAP[one];
+      const consonants = nextChoices
+        ? [...new Set(nextChoices.map(v=>v[0]).filter(c=>/[a-z]/.test(c)))]
+        : [];
+      parts.push(consonants.length ? consonants : ROMAJI_MAP['っ']);
+      i += 1;
+      continue;
+    }
+
+    const two = normalized.slice(i,i+2);
+    if(ROMAJI_MAP[two]){
+      parts.push(ROMAJI_MAP[two]);
+      i += 2;
+      continue;
+    }
+
+    const one = normalized[i];
+    parts.push(ROMAJI_MAP[one] || [one]);
+    i += 1;
+  }
+
+  const variants = combineVariants(parts);
+  const expanded = new Set(variants);
+  for(const value of variants){
+    if(value.includes('dhi')) expanded.add(value.replaceAll('dhi','dxi'));
+    if(value.includes('dxi')) expanded.add(value.replaceAll('dxi','dhi'));
+  }
+  return [...expanded].slice(0,512);
+}
+
+function prepareTypingTargets(source){
+  state.acceptedTargets = kanaToRomajiVariants(source);
+  if(!state.acceptedTargets.length) state.acceptedTargets = [String(source||'').toLowerCase()];
+  state.target = state.acceptedTargets[0];
+  state.typedBuffer = '';
+}
+
+function matchingTargets(buffer){
+  return state.acceptedTargets.filter(value=>value.startsWith(buffer));
+}
+
+function renderWord(){
+  const matches = matchingTargets(state.typedBuffer);
+  const displayTarget = matches[0] || state.target;
+  state.target = displayTarget;
+
+  $('roman').innerHTML = [...displayTarget].map((char,index)=>{
+    if(index < state.typedBuffer.length) return `<span class="done">${char}</span>`;
+    if(index === state.typedBuffer.length) return `<span class="current">${char}</span>`;
+    return char;
+  }).join('');
+  $('jp').textContent = state.jp;
+  updateKeyboardGuide();
+}
+
+/* =========================================================
+   キーボードガイド
+   ========================================================= */
+function updateKeyboardGuide(){
+  $$('.key').forEach(key=>key.classList.remove('next'));
+  if(!state.active){
+    $('nextKeyLabel').textContent = '-';
+    return;
+  }
+
+  const nextKeys = [...new Set(
+    matchingTargets(state.typedBuffer)
+      .map(value=>value[state.typedBuffer.length])
+      .filter(Boolean)
+  )];
+
+  $('nextKeyLabel').textContent = nextKeys.length
+    ? nextKeys.map(k=>k.toUpperCase()).join(' / ')
+    : '-';
+
+  nextKeys.forEach(key=>document.querySelector(`.key[data-key="${key}"]`)?.classList.add('next'));
+}
+
+/* =========================================================
+   球場 / 見た目
+   ========================================================= */
+function loadAppearanceStore(){
+  try{return JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY)) || {};}
+  catch(_e){return {};}
+}
+
+function saveAppearanceStore(){
+  try{localStorage.setItem(APPEARANCE_STORAGE_KEY,JSON.stringify(appearanceStore));}
+  catch(_e){}
+}
+
+function appearanceFor(id){
+  return {...DEFAULT_APPEARANCE,...(appearanceStore[id]||{})};
+}
+
+function openStadiumDB(){
+  return new Promise((resolve,reject)=>{
+    const request = indexedDB.open(STADIUM_DB_NAME,1);
+    request.onupgradeneeded = ()=>{
+      const db = request.result;
+      if(!db.objectStoreNames.contains(STADIUM_STORE)) db.createObjectStore(STADIUM_STORE,{keyPath:'id'});
+    };
+    request.onsuccess = ()=>resolve(request.result);
+    request.onerror = ()=>reject(request.error);
+  });
+}
+
+async function stadiumDbGetAll(){
+  try{
+    const db = await openStadiumDB();
+    return await new Promise((resolve,reject)=>{
+      const req = db.transaction(STADIUM_STORE,'readonly').objectStore(STADIUM_STORE).getAll();
+      req.onsuccess = ()=>resolve(req.result||[]);
+      req.onerror = ()=>reject(req.error);
+    });
+  }catch(_e){return [];}
+}
+
+async function stadiumDbPut(record){
+  const db = await openStadiumDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STADIUM_STORE,'readwrite');
+    tx.objectStore(STADIUM_STORE).put(record);
+    tx.oncomplete = resolve;
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+
+async function stadiumDbDelete(id){
+  const db = await openStadiumDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STADIUM_STORE,'readwrite');
+    tx.objectStore(STADIUM_STORE).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+
+function rebuildStadiumSelectors(){
+  [$('backgroundSelect'),$('appearanceBgSelect')].filter(Boolean).forEach(select=>{
+    select.innerHTML = '';
+    stadiumLibrary.forEach(stadium=>{
+      const option = document.createElement('option');
+      option.value = stadium.id;
+      option.textContent = stadium.name;
+      select.appendChild(option);
+    });
+    select.value = state.selectedStadiumId;
+  });
+}
+
 function applyAppearance(){
-  const a=appFor(selectedStadiumId), app=$('app'), p=document.querySelector('.pitcherWrap');
-  const st=stadiumLibrary.find(x=>x.id===selectedStadiumId)||stadiumLibrary[0];
-  if(app&&st){
-    app.style.setProperty('background-image',`url("${st.url}")`,'important');
-    app.style.setProperty('background-position',`${a.bgX}% ${a.bgY}%`,'important');
-    app.style.setProperty('background-size',a.bgScale===100?'cover':`${a.bgScale}% auto`,'important')
-  }
-  if(p){
-    p.style.setProperty('left',`${a.pitcherX}%`,'important');
-    p.style.setProperty('top',`${a.pitcherY}px`,'important');
-    p.style.setProperty('transform',`translateX(-50%) scale(${a.pitcherScale/100})`,'important');
-    p.style.setProperty('transform-origin','50% 100%','important')
-  }
+  const stadium = stadiumLibrary.find(s=>s.id===state.selectedStadiumId) || BUILTIN_STADIUMS[0];
+  const appearance = appearanceFor(state.selectedStadiumId);
+  const app = $('app');
+  const pitcher = document.querySelector('.pitcherWrap');
+  const keyboard = $('keyboardGuide');
+  const wordPanel = document.querySelector('.wordPanel');
 
-  const kb=$('keyboardGuide');
-  if(kb){
-    kb.style.setProperty('left',`${a.keyboardX}%`,'important');
-    kb.style.setProperty('bottom',`${a.keyboardY}px`,'important');
-    kb.style.setProperty('transform',`translateX(-50%) scale(${a.keyboardScale/100})`,'important');
-    kb.style.setProperty('transform-origin','50% 100%','important');
-  }
+  app.style.backgroundImage = `url("${stadium.url}")`;
+  app.style.backgroundPosition = `${appearance.bgX}% ${appearance.bgY}%`;
+  app.style.backgroundSize = appearance.bgScale===100 ? 'cover' : `${appearance.bgScale}% auto`;
 
-  const wp=document.querySelector('.wordPanel');
-  if(wp){
-    wp.style.setProperty('left',`${a.wordX}%`,'important');
-    wp.style.setProperty('bottom',`${a.wordY}px`,'important');
-    wp.style.setProperty('transform',`translateX(-50%) scale(${a.wordScale/100})`,'important');
-    wp.style.setProperty('transform-origin','50% 100%','important');
-  }
+  pitcher.style.left = `${appearance.pitcherX}%`;
+  pitcher.style.top = `${appearance.pitcherY}px`;
+  pitcher.style.transform = `translateX(-50%) scale(${appearance.pitcherScale/100})`;
+
+  keyboard.style.left = `${appearance.keyboardX}%`;
+  keyboard.style.bottom = `calc(8px + ${appearance.keyboardY}px)`;
+  keyboard.style.transform = `translateX(-50%) scale(${appearance.keyboardScale/100})`;
+
+  wordPanel.style.left = `${appearance.wordX}%`;
+  wordPanel.style.bottom = `calc(23% + ${appearance.wordY}px)`;
+  wordPanel.style.transform = `translateX(-50%) scale(${appearance.wordScale/100})`;
 }
-function syncAppearance(){
-  if(!$('bgPosX'))return;const a=appFor(selectedStadiumId);
-  const vals={
+
+function syncAppearanceControls(){
+  const a = appearanceFor(state.selectedStadiumId);
+  const controls = {
     bgPosX:a.bgX,bgPosY:a.bgY,bgScale:a.bgScale,
     pitcherPosX:a.pitcherX,pitcherPosY:a.pitcherY,pitcherScale:a.pitcherScale,
     keyboardPosX:a.keyboardX,keyboardPosY:a.keyboardY,keyboardScale:a.keyboardScale,
     wordPanelPosX:a.wordX,wordPanelPosY:a.wordY,wordPanelScale:a.wordScale
   };
-  Object.entries(vals).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
+  Object.entries(controls).forEach(([id,value])=>{ if($(id)) $(id).value = value; });
 
-  $('bgPosXValue').textContent=`${a.bgX}%`;$('bgPosYValue').textContent=`${a.bgY}%`;$('bgScaleValue').textContent=`${a.bgScale}%`;
-  $('pitcherPosXValue').textContent=`${a.pitcherX}%`;$('pitcherPosYValue').textContent=`${a.pitcherY}px`;$('pitcherScaleValue').textContent=`${a.pitcherScale}%`;
-
-  if($('keyboardPosXValue')) $('keyboardPosXValue').textContent=`${a.keyboardX}%`;
-  if($('keyboardPosYValue')) $('keyboardPosYValue').textContent=`${a.keyboardY}px`;
-  if($('keyboardScaleValue')) $('keyboardScaleValue').textContent=`${a.keyboardScale}%`;
-
-  if($('wordPanelPosXValue')) $('wordPanelPosXValue').textContent=`${a.wordX}%`;
-  if($('wordPanelPosYValue')) $('wordPanelPosYValue').textContent=`${a.wordY}px`;
-  if($('wordPanelScaleValue')) $('wordPanelScaleValue').textContent=`${a.wordScale}%`;
-  if($('appearanceBgSelect'))$('appearanceBgSelect').value=selectedStadiumId
+  $('bgPosXValue').textContent = `${a.bgX}%`;
+  $('bgPosYValue').textContent = `${a.bgY}%`;
+  $('bgScaleValue').textContent = `${a.bgScale}%`;
+  $('pitcherPosXValue').textContent = `${a.pitcherX}%`;
+  $('pitcherPosYValue').textContent = `${a.pitcherY}px`;
+  $('pitcherScaleValue').textContent = `${a.pitcherScale}%`;
+  $('keyboardPosXValue').textContent = `${a.keyboardX}%`;
+  $('keyboardPosYValue').textContent = `${a.keyboardY}px`;
+  $('keyboardScaleValue').textContent = `${a.keyboardScale}%`;
+  $('wordPanelPosXValue').textContent = `${a.wordX}%`;
+  $('wordPanelPosYValue').textContent = `${a.wordY}px`;
+  $('wordPanelScaleValue').textContent = `${a.wordScale}%`;
+  $('appearanceBgSelect').value = state.selectedStadiumId;
 }
-function selectStadium(id){
-  if(!stadiumLibrary.some(x=>x.id===id))id='escon';selectedStadiumId=id;
-  try{localStorage.setItem(BG_STORAGE_KEY,id)}catch(e){};rebuildSelectors();applyAppearance();syncAppearance()
-}
-function updateAppearance(){
-  appearanceStore[selectedStadiumId]={
+
+function updateAppearanceFromControls(){
+  appearanceStore[state.selectedStadiumId] = {
     bgX:+$('bgPosX').value,
     bgY:+$('bgPosY').value,
     bgScale:+$('bgScale').value,
@@ -120,688 +569,235 @@ function updateAppearance(){
     wordY:+$('wordPanelPosY').value,
     wordScale:+$('wordPanelScale').value
   };
-  saveAppStore();syncAppearance();applyAppearance()
+  saveAppearanceStore();
+  syncAppearanceControls();
+  applyAppearance();
 }
-function resetAppearance(){delete appearanceStore[selectedStadiumId];saveAppStore();syncAppearance();applyAppearance()}
-function renderCustomList(){
-  const box=$('customStadiumList');
-  if(!box)return;
-  box.innerHTML='';
 
-  const custom=stadiumLibrary.filter(x=>!x.builtin);
-  if(custom.length===0){
-    const empty=document.createElement('div');
-    empty.className='customStadiumEmpty';
-    empty.textContent='追加した球場はありません';
+function selectStadium(id){
+  if(!stadiumLibrary.some(s=>s.id===id)) id = 'escon';
+  state.selectedStadiumId = id;
+  try{localStorage.setItem(BG_STORAGE_KEY,id);}catch(_e){}
+  rebuildStadiumSelectors();
+  applyAppearance();
+  syncAppearanceControls();
+}
+
+function resetCurrentAppearance(){
+  delete appearanceStore[state.selectedStadiumId];
+  saveAppearanceStore();
+  syncAppearanceControls();
+  applyAppearance();
+}
+
+function renderCustomStadiumList(){
+  const box = $('customStadiumList');
+  box.innerHTML = '';
+  const custom = stadiumLibrary.filter(s=>!s.builtin);
+  if(!custom.length){
+    const empty = document.createElement('div');
+    empty.className = 'customStadiumEmpty';
+    empty.textContent = '追加した球場はありません';
     box.appendChild(empty);
     return;
   }
 
-  custom.forEach(s=>{
-    const row=document.createElement('div');
-    row.className='customStadiumItem';
-
-    const name=document.createElement('span');
-    name.className='customStadiumName';
-    name.textContent=s.name;
-
-    const del=document.createElement('button');
-    del.type='button';
-    del.className='customStadiumDelete';
-    del.textContent='削除';
-
-    del.addEventListener('click',async()=>{
-      if(!confirm(`「${s.name}」を削除しますか？`))return;
-
-      try{
-        await dbDel(s.id);
-        stadiumLibrary=stadiumLibrary.filter(x=>x.id!==s.id);
-        delete appearanceStore[s.id];
-        saveAppStore();
-
-        if(selectedStadiumId===s.id){
-          selectedStadiumId='escon';
-          try{localStorage.setItem(BG_STORAGE_KEY,selectedStadiumId)}catch(e){}
-        }
-
-        rebuildSelectors();
-        renderCustomList();
-        selectStadium(selectedStadiumId);
-      }catch(err){
-        console.error(err);
-        alert('球場画像を削除できませんでした。');
-      }
-    });
-
-    row.appendChild(name);
-    row.appendChild(del);
+  custom.forEach(stadium=>{
+    const row = document.createElement('div');
+    row.className = 'customStadiumItem';
+    const name = document.createElement('span');
+    name.className = 'customStadiumName';
+    name.textContent = stadium.name;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'customStadiumDelete';
+    del.textContent = '削除';
+    del.addEventListener('click',()=>deleteCustomStadium(stadium));
+    row.append(name,del);
     box.appendChild(row);
   });
 }
+
 async function addCustomStadium(){
-  const name=$('stadiumNameInput').value.trim(),file=selectedCustomFile;if(!name)return alert('球場名を入力してください。');if(!file)return alert('画像を選んでください。');
-  const id=`custom_${Date.now()}`;await dbPut({id,name,blob:file});stadiumLibrary.push({id,name,url:URL.createObjectURL(file),builtin:false});
-  $('stadiumNameInput').value='';$('stadiumFileInput').value='';$('stadiumFileName').textContent='画像未選択';selectedCustomFile=null;rebuildSelectors();renderCustomList();selectStadium(id)
+  const name = $('stadiumNameInput').value.trim();
+  const file = state.selectedCustomFile;
+  if(!name) return alert('球場名を入力してください。');
+  if(!file) return alert('球場の画像を選んでください。');
+
+  try{
+    const id = `custom_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    await stadiumDbPut({id,name,blob:file});
+    stadiumLibrary.push({id,name,url:URL.createObjectURL(file),builtin:false});
+    $('stadiumNameInput').value = '';
+    $('stadiumFileInput').value = '';
+    $('stadiumFileName').textContent = '画像未選択';
+    state.selectedCustomFile = null;
+    renderCustomStadiumList();
+    selectStadium(id);
+  }catch(error){
+    console.error(error);
+    alert('球場画像を保存できませんでした。');
+  }
 }
+
+async function deleteCustomStadium(stadium){
+  if(!confirm(`「${stadium.name}」を削除しますか？`)) return;
+  try{
+    await stadiumDbDelete(stadium.id);
+    if(stadium.url?.startsWith('blob:')) URL.revokeObjectURL(stadium.url);
+    stadiumLibrary = stadiumLibrary.filter(s=>s.id!==stadium.id);
+    delete appearanceStore[stadium.id];
+    saveAppearanceStore();
+    if(state.selectedStadiumId===stadium.id) state.selectedStadiumId = 'escon';
+    renderCustomStadiumList();
+    selectStadium(state.selectedStadiumId);
+  }catch(error){
+    console.error(error);
+    alert('球場画像を削除できませんでした。');
+  }
+}
+
 async function initStadiums(){
-  const custom=await dbAll();stadiumLibrary=[...BUILTIN,...custom.map(s=>({...s,url:URL.createObjectURL(s.blob),builtin:false}))];
-  try{const x=localStorage.getItem(BG_STORAGE_KEY);if(x&&stadiumLibrary.some(s=>s.id===x))selectedStadiumId=x}catch(e){}
-  rebuildSelectors();renderCustomList();applyAppearance();syncAppearance()
-}
-function openAppearance(){syncAppearance();renderCustomList();$('appearanceModal').classList.add('show')}
-function closeAppearance(){$('appearanceModal').classList.remove('show')}
-
-const sfx = {
-  hit: new Audio('hit.mp3'),
-  homerun: new Audio('homerun.mp3'),
-  strike: new Audio('strike.mp3')
-};
-Object.values(sfx).forEach(a => a.preload = 'auto');
-
-let active=false;
-let challenge=false;
-let target='';
-let acceptedTargets=[];
-let typedBuffer='';
-let jp='';
-let pos=0;
-let misses=0;
-let hrs=0;
-let pitchIndex=0;
-let startAt=0;
-let duration=10;
-let raf=null;
-let animTimers=[];
-let nextTimer=null;
-let lastWordKey=null;
-let paused=false;
-let pauseStartedAt=0;
-let pausedElapsed=0;
-let pauseBallState=null;
-let selectedDuration=null;
-const BALL_RELEASE_Y_OFFSET = -10;
-
-if($('pitcher')) $('pitcher').src=frames[0];
-
-function playSfx(name){
-  const a=sfx[name];
-  if(!a) return;
+  const custom = await stadiumDbGetAll();
+  stadiumLibrary = [
+    ...BUILTIN_STADIUMS,
+    ...custom.map(s=>({...s,url:URL.createObjectURL(s.blob),builtin:false}))
+  ];
   try{
-    a.pause();
-    a.currentTime=0;
-    a.play().catch(()=>{});
-  }catch(e){}
+    const saved = localStorage.getItem(BG_STORAGE_KEY);
+    if(saved && stadiumLibrary.some(s=>s.id===saved)) state.selectedStadiumId = saved;
+  }catch(_e){}
+  rebuildStadiumSelectors();
+  renderCustomStadiumList();
+  applyAppearance();
+  syncAppearanceControls();
 }
 
-function beep(freq=440,dur=.08,type='sine',gain=.04){
-  try{
-    const A=window.AudioContext||window.webkitAudioContext;
-    const c=window._ac||(window._ac=new A());
-    const o=c.createOscillator(),g=c.createGain();
-    o.type=type;o.frequency.value=freq;g.gain.value=gain;
-    o.connect(g);g.connect(c.destination);o.start();
-    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+dur);
-    o.stop(c.currentTime+dur);
-  }catch(e){}
+/* =========================================================
+   投球 / ゲーム進行
+   ========================================================= */
+function clearPitcherAnimation(){
+  state.animTimers.forEach(clearTimeout);
+  state.animTimers = [];
 }
 
-function clearAnim(){
-  animTimers.forEach(clearTimeout);
-  animTimers=[];
-}
-
-/* 画像1〜10を順番に再生。
-   9〜10あたりでボールが手を離れるイメージ。 */
 function pitcherAnimation(){
-  clearAnim();
-  const frameMs=90;
-  frames.forEach((src,i)=>{
-    animTimers.push(setTimeout(()=>{
-      $('pitcher').src=src;
-      if(i===8) beep(180,.05,'square',.025);
-    }, i*frameMs));
+  clearPitcherAnimation();
+  const frameMs = 90;
+  PITCHER_FRAMES.forEach((src,index)=>{
+    state.animTimers.push(setTimeout(()=>{
+      $('pitcher').src = src;
+      if(index===8) beep(180,.05,'square',.025);
+    },index*frameMs));
   });
 }
 
-
-
-const MAX_WORDS=100;
-
-function makeWordRow(label='',kana=''){
-  const row=document.createElement('div');
-  row.className='wordRow';
-
-  const labelInput=document.createElement('input');
-  labelInput.type='text';
-  labelInput.className='wordLabelInput';
-  labelInput.placeholder='表示する文字';
-  labelInput.value=label;
-
-  const kanaInput=document.createElement('input');
-  kanaInput.type='text';
-  kanaInput.className='wordKanaInput';
-  kanaInput.placeholder='ふりがな';
-  kanaInput.value=kana;
-
-  const del=document.createElement('button');
-  del.type='button';
-  del.className='wordDeleteBtn';
-  del.textContent='×';
-  del.title='削除';
-
-  del.addEventListener('click',()=>{
-    row.remove();
-    if(!$('wordRows').children.length) addWordRow();
-    updateWordCount();
-  });
-
-  // 改行された一覧を貼り付けた場合、1行ずつ下へ展開
-  labelInput.addEventListener('paste',e=>handleMultiLinePaste(e,'label',row));
-  kanaInput.addEventListener('paste',e=>handleMultiLinePaste(e,'kana',row));
-
-  labelInput.addEventListener('input',updateWordCount);
-  kanaInput.addEventListener('input',updateWordCount);
-
-  row.append(labelInput,kanaInput,del);
-  return row;
-}
-
-function addWordRow(label='',kana='',focus=false){
-  if($('wordRows').children.length>=MAX_WORDS)return null;
-  const row=makeWordRow(label,kana);
-  $('wordRows').appendChild(row);
-  updateWordCount();
-  if(focus) row.querySelector('.wordLabelInput').focus();
-  return row;
-}
-
-function handleMultiLinePaste(e,type,currentRow){
-  const text=e.clipboardData?.getData('text');
-  if(!text || !/[\r\n]/.test(text)) return;
-
-  e.preventDefault();
-  const lines=text.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
-  if(!lines.length)return;
-
-  const rows=[...$('wordRows').children];
-  let index=rows.indexOf(currentRow);
-
-  lines.forEach((line,i)=>{
-    if(index+i>=MAX_WORDS)return;
-    let row=$('wordRows').children[index+i];
-    if(!row) row=addWordRow();
-
-    // 「表示,ふりがな」形式を貼った場合は両方に自動入力
-    const comma=line.indexOf(',');
-    if(comma>=0){
-      row.querySelector('.wordLabelInput').value=line.slice(0,comma).trim();
-      row.querySelector('.wordKanaInput').value=line.slice(comma+1).trim();
-    }else{
-      const target=type==='label'
-        ? row.querySelector('.wordLabelInput')
-        : row.querySelector('.wordKanaInput');
-      target.value=line;
-    }
-  });
-  updateWordCount();
-}
-
-function fillWordRows(list){
-  $('wordRows').innerHTML='';
-  list.slice(0,MAX_WORDS).forEach(([label,kana])=>addWordRow(label,kana));
-  if(!$('wordRows').children.length)addWordRow();
-  updateWordCount();
-}
-
-function collectWordRows(){
-  const result=[];
-  [...$('wordRows').children].forEach(row=>{
-    const label=row.querySelector('.wordLabelInput').value.trim();
-    const kana=row.querySelector('.wordKanaInput').value.trim();
-    if(!label && !kana)return;
-    if(!label || !kana)return;
-    result.push([label,kana]);
-  });
-  return result.slice(0,MAX_WORDS);
-}
-
-function updateWordCount(){
-  const count=collectWordRows().length;
-  $('wordCount').textContent=count;
-}
-
-function openWordModal(){
-  if(active)return;
-  fillWordRows(words);
-  $('wordModal').classList.add('show');
-  $('wordModal').setAttribute('aria-hidden','false');
-}
-
-function closeWordModal(){
-  $('wordModal').classList.remove('show');
-  $('wordModal').setAttribute('aria-hidden','true');
-}
-
-function saveCustomWords(){
-  const parsed=collectWordRows();
-  if(!parsed.length){
-    alert('「表示する文字」と「ふりがな」を1つ以上登録してください。');
-    return;
-  }
-  words=parsed;
-  localStorage.setItem(WORD_STORAGE_KEY,JSON.stringify(words));
-  closeWordModal();
-  $('jp').textContent=`単語を${words.length}語保存しました`;
-  $('roman').textContent='スペースキーでゲームスタート';
-}
-
-function resetWords(){
-  words=defaultWords.map(w=>[...w]);
-  localStorage.removeItem(WORD_STORAGE_KEY);
-  fillWordRows(words);
-}
-
-
-function updateTimeoutChoiceUI(){
-  const secs=selectedDuration ?? +$('duration').value;
-  $('timeoutCurrent').textContent=`${secs}秒`;
-  document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
-    btn.classList.toggle('selected', +btn.dataset.seconds===secs);
-  });
-}
-
-function openTimeout(){
-  if(!challenge || paused) return;
-
-  paused=true;
-  selectedDuration=+$('duration').value;
-
-  // 投球中なら現在位置で止める
-  if(active){
-    cancelAnimationFrame(raf);
-    clearAnim();
-
-    const now=performance.now();
-    pausedElapsed=(now-startAt)/1000;
-    pauseBallState={
-      top:$('ball').style.top,
-      transform:$('ball').style.transform,
-      filter:$('ball').style.filter,
-      opacity:$('ball').style.opacity
-    };
-  }else{
-    pausedElapsed=0;
-    pauseBallState=null;
-  }
-
-  $('timeoutModal').classList.add('show');
-  $('timeoutModal').setAttribute('aria-hidden','false');
-  updateTimeoutChoiceUI();
-}
-
-function resumeTimeout(){
-  if(!paused) return;
-
-  const wasActive=active;
-  const oldDuration=duration;
-
-  if(selectedDuration){
-    $('duration').value=String(selectedDuration);
-    duration=selectedDuration;
-  }
-
-  $('timeoutModal').classList.remove('show');
-  $('timeoutModal').setAttribute('aria-hidden','true');
-  paused=false;
-
-  // 投球中なら、新しい制限時間に合わせて残り時間を再計算して再開
-  if(wasActive){
-    // 既に経過していた割合を保って、新しい時間へ置き換える
-    const progress = oldDuration > 0 ? Math.min(1, pausedElapsed / oldDuration) : 0;
-    const newElapsed = progress * duration;
-    startAt=performance.now()-(newElapsed*1000);
-
-    if(pauseBallState){
-      $('ball').style.top=pauseBallState.top;
-      $('ball').style.transform=pauseBallState.transform;
-      $('ball').style.filter=pauseBallState.filter;
-      $('ball').style.opacity=pauseBallState.opacity;
-    }
-
-    raf=requestAnimationFrame(tick);
-  }else{
-    $('roman').textContent='Enterキーで投球';
+function buildPitchDots(){
+  const box = $('pitchDots');
+  box.innerHTML = '';
+  for(let i=0;i<TOTAL_PITCHES;i++){
+    const dot = document.createElement('div');
+    dot.className = 'pitchDot';
+    dot.id = `dot${i}`;
+    dot.textContent = i+1;
+    box.appendChild(dot);
   }
 }
 
-
-/* ===== 柔軟なローマ字入力 =====
-   例:
-   し = shi / si
-   しゃ = sha / sya
-   しゅ = shu / syu
-   しょ = sho / syo
-   ち = chi / ti
-   つ = tsu / tu
-   ふ = fu / hu
-   じ = ji / zi
-   ん = n / nn
-   などを許可する。
-*/
-const ROMAJI_MAP = {
-  'あ':['a'],'い':['i'],'う':['u'],'え':['e'],'お':['o'],
-  'か':['ka'],'き':['ki'],'く':['ku'],'け':['ke'],'こ':['ko'],
-  'さ':['sa'],'し':['shi','si'],'す':['su'],'せ':['se'],'そ':['so'],
-  'た':['ta'],'ち':['chi','ti'],'つ':['tsu','tu'],'て':['te'],'と':['to'],
-  'な':['na'],'に':['ni'],'ぬ':['nu'],'ね':['ne'],'の':['no'],
-  'は':['ha'],'ひ':['hi'],'ふ':['fu','hu'],'へ':['he'],'ほ':['ho'],
-  'ま':['ma'],'み':['mi'],'む':['mu'],'め':['me'],'も':['mo'],
-  'や':['ya'],'ゆ':['yu'],'よ':['yo'],
-  'ら':['ra'],'り':['ri'],'る':['ru'],'れ':['re'],'ろ':['ro'],
-  'わ':['wa'],'を':['wo'],
-  'ん':['n','nn'],
-  'が':['ga'],'ぎ':['gi'],'ぐ':['gu'],'げ':['ge'],'ご':['go'],
-  'ざ':['za'],'じ':['ji','zi'],'ず':['zu'],'ぜ':['ze'],'ぞ':['zo'],
-  'だ':['da'],'ぢ':['ji','di'],'づ':['zu','du'],'で':['de'],'ど':['do'],
-  'ば':['ba'],'び':['bi'],'ぶ':['bu'],'べ':['be'],'ぼ':['bo'],
-  'ぱ':['pa'],'ぴ':['pi'],'ぷ':['pu'],'ぺ':['pe'],'ぽ':['po'],
-
-  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
-  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
-  'ちゃ':['cha','tya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
-  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
-  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
-  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
-  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
-  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
-  'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
-  'でぃ':['dhi','dxi'],
-  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
-  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
-
-  'ぁ':['xa','la'],'ぃ':['xi','li'],'ぅ':['xu','lu'],'ぇ':['xe','le'],'ぉ':['xo','lo'],
-  'ゃ':['xya','lya'],'ゅ':['xyu','lyu'],'ょ':['xyo','lyo'],
-  'っ':['xtu','ltu']
-};
-
-function katakanaToHiragana(s){
-  return s.replace(/[\u30a1-\u30f6]/g,ch =>
-    String.fromCharCode(ch.charCodeAt(0)-0x60)
-  );
+function markCurrentPitch(){
+  $$('.pitchDot').forEach(dot=>dot.classList.remove('current'));
+  if(state.pitchIndex<TOTAL_PITCHES) $(`dot${state.pitchIndex}`)?.classList.add('current');
 }
 
-function combineVariants(parts, limit=512){
-  let result=[''];
-  for(const choices of parts){
-    const next=[];
-    for(const base of result){
-      for(const c of choices){
-        next.push(base+c);
-        if(next.length>=limit) break;
-      }
-      if(next.length>=limit) break;
-    }
-    result=next;
+function chooseNextWord(){
+  let candidates = words;
+  if(words.length>1 && state.lastWordKey){
+    candidates = words.filter(w=>`${w[0]}\u0000${w[1]}`!==state.lastWordKey);
   }
-  return [...new Set(result)];
-}
-
-function kanaToRomajiVariants(source){
-  let s=katakanaToHiragana(String(source||'').trim().toLowerCase());
-
-  // すでにローマ字で登録されている旧データは、そのまま使いつつ
-  // よくある表記揺れも追加する
-  if(/^[a-z]+$/.test(s)){
-    const set=new Set([s]);
-    const swaps=[
-      ['shi','si'],['si','shi'],
-      ['sha','sya'],['sya','sha'],
-      ['shu','syu'],['syu','shu'],
-      ['sho','syo'],['syo','sho'],
-      ['chi','ti'],['ti','chi'],
-      ['cha','tya'],['tya','cha'],
-      ['chu','tyu'],['tyu','chu'],
-      ['cho','tyo'],['tyo','cho'],
-      ['tsu','tu'],['tu','tsu'],
-      ['fu','hu'],['hu','fu'],
-      ['ji','zi'],['zi','ji'],
-      ['dhi','dxi'],['dxi','dhi']
-    ];
-    // 複数箇所の表記揺れにもある程度対応
-    let pool=[s];
-    for(let round=0;round<3;round++){
-      const add=[];
-      for(const v of pool){
-        for(const [a,b] of swaps){
-          if(v.includes(a)) add.push(v.replaceAll(a,b));
-        }
-      }
-      pool=[...new Set([...pool,...add])].slice(0,512);
-    }
-    pool.forEach(v=>set.add(v));
-
-    // 「ん」は n / nn の両方を許可（旧ローマ字登録にも対応）
-    // 例: densha / dennsha, kan / kann
-    [...set].forEach(v=>{
-      if(v.includes('nn')) set.add(v.replaceAll('nn','n'));
-
-      // n の次が母音・y・n 以外、または語末なら「ん」とみなし nn 版も作る
-      let doubled=v.replace(/n(?=[^aiueoyn]|$)/g,'nn');
-      set.add(doubled);
-    });
-    return [...set].slice(0,512);
-  }
-
-  const parts=[];
-  for(let i=0;i<s.length;){
-    // 小さい「っ」: 次の音の先頭子音を重ねる
-    if(s[i]==='っ'){
-      let nextKey=s.slice(i+1,i+3);
-      let nextChoices=ROMAJI_MAP[nextKey];
-      if(!nextChoices){
-        nextKey=s[i+1];
-        nextChoices=ROMAJI_MAP[nextKey];
-      }
-      if(nextChoices){
-        const consonants=[...new Set(nextChoices.map(v=>v[0]).filter(c=>/[a-z]/.test(c)))];
-        parts.push(consonants.length?consonants:['xtu','ltu']);
-        i++;
-        continue;
-      }
-    }
-
-    const two=s.slice(i,i+2);
-    if(ROMAJI_MAP[two]){
-      parts.push(ROMAJI_MAP[two]);
-      i+=2;
-      continue;
-    }
-    const one=s[i];
-    if(ROMAJI_MAP[one]){
-      parts.push(ROMAJI_MAP[one]);
-      i++;
-      continue;
-    }
-
-    // 未対応文字はそのまま（入力不能になるのを避ける）
-    parts.push([one]);
-    i++;
-  }
-  let variants=combineVariants(parts);
-
-  // 複合音「でぃ / ディ」は dhi / dxi のどちらも必ず許可する
-  // 例: フレディ → furedhi / furedxi
-  const expanded=new Set(variants);
-  for(const v of variants){
-    if(v.includes('dhi')) expanded.add(v.replaceAll('dhi','dxi'));
-    if(v.includes('dxi')) expanded.add(v.replaceAll('dxi','dhi'));
-  }
-  return [...expanded].slice(0,512);
-}
-
-function prepareTypingTargets(source){
-  acceptedTargets=kanaToRomajiVariants(source);
-  if(!acceptedTargets.length) acceptedTargets=[String(source||'').toLowerCase()];
-  // 画面表示は一番一般的な候補
-  target=acceptedTargets[0];
-  typedBuffer='';
-  pos=0;
-}
-
-function matchingTargets(buffer){
-  return acceptedTargets.filter(v=>v.startsWith(buffer));
-}
-
-function chooseDisplayTarget(){
-  const matches=matchingTargets(typedBuffer);
-  return matches[0] || target;
-}
-
-
-function getNextGuideKeys(){
-  const matches=matchingTargets(typedBuffer);
-  return [...new Set(matches.map(v=>v[typedBuffer.length]).filter(Boolean))];
-}
-function updateKeyboardGuide(){
-  document.querySelectorAll('.key').forEach(el=>el.classList.remove('next'));
-  if(!$('nextKeyLabel')) return;
-  if(!active){$('nextKeyLabel').textContent='-';return;}
-  const keys=getNextGuideKeys();
-  $('nextKeyLabel').textContent=keys.length?keys.map(k=>k.toUpperCase()).join(' / '):'-';
-  keys.forEach(k=>{const el=document.querySelector(`.key[data-key="${k}"]`);if(el)el.classList.add('next')});
-}
-function flashKeyboardKey(key,type){
-  const el=document.querySelector(`.key[data-key="${key}"]`);
-  if(!el)return;
-  el.classList.remove('correct','wrong');void el.offsetWidth;el.classList.add(type);
-  setTimeout(()=>el.classList.remove(type),220);
-}
-
-function renderWord(){
-  const displayTarget=chooseDisplayTarget();
-  target=displayTarget;
-  let h='';
-  for(let i=0;i<displayTarget.length;i++){
-    const c=displayTarget[i];
-    h += i<typedBuffer.length
-      ? `<span class="done">${c}</span>`
-      : i===typedBuffer.length
-        ? `<span class="current">${c}</span>`
-        : c;
-  }
-  $('roman').innerHTML=h;
-  $('jp').textContent=jp;
-  updateKeyboardGuide();
-}
-
-function buildDots(){
-  const box=$('pitchDots');
-  box.innerHTML='';
-  for(let i=0;i<10;i++){
-    const d=document.createElement('div');
-    d.className='pitchDot';
-    d.id='dot'+i;
-    d.textContent=i+1;
-    box.appendChild(d);
-  }
-}
-
-function markCurrent(){
-  document.querySelectorAll('.pitchDot').forEach(d=>d.classList.remove('current'));
-  if(pitchIndex<10) $('dot'+pitchIndex).classList.add('current');
+  const chosen = candidates[Math.floor(Math.random()*candidates.length)];
+  state.lastWordKey = `${chosen[0]}\u0000${chosen[1]}`;
+  return chosen;
 }
 
 function resetChallenge(){
-  cancelAnimationFrame(raf);
-  clearAnim();
-  clearTimeout(nextTimer);
-  active=false;
-  paused=false;
-  challenge=true;
-  hrs=0;
-  pitchIndex=0;
-  lastWordKey=null;
-  $('hrs').textContent='0';
-  $('pitchNo').textContent='0';
-  $('pitcher').src=frames[0];
-  buildDots();
-  markCurrent();
+  cancelAnimationFrame(state.raf);
+  clearPitcherAnimation();
+  clearTimeout(state.nextTimer);
+  state.nextTimer = null;
+  state.active = false;
+  state.paused = false;
+  state.challenge = true;
+  state.hrs = 0;
+  state.pitchIndex = 0;
+  state.lastWordKey = null;
+
+  $('hrs').textContent = '0';
+  $('pitchNo').textContent = '0';
+  $('pitcher').src = PITCHER_FRAMES[0];
+  $('start').disabled = true;
+  $('duration').disabled = true;
+  $('timeoutBtn').disabled = false;
   $('summary').classList.remove('show');
-  $('start').disabled=true;
-  $('duration').disabled=true;
-  if($('timeoutBtn')) $('timeoutBtn').disabled=false;
-  $('timeoutBtn').disabled=false;
-  $('jp').textContent='プレイボール！';
-  $('roman').textContent='Enterキーで第1球を投げる';
+  $('jp').textContent = 'プレイボール！';
+  $('roman').textContent = 'Enterキーで第1球を投げる';
+  $('miss').textContent = '0';
+  $('time').textContent = '--';
+  $('timerFill').style.transform = 'scaleX(1)';
+  buildPitchDots();
+  markCurrentPitch();
   updateKeyboardGuide();
 }
 
 function startPitch(){
-  if(active || paused || !challenge || pitchIndex>=10) return;
+  if(state.active || state.paused || !state.challenge || state.pitchIndex>=TOTAL_PITCHES) return;
 
-  // 前の球の終了後タイマーが残っていると、
-  // 投球中に「Enterキーで投球」が上書き表示されるため解除する
-  clearTimeout(nextTimer);
-  nextTimer=null;
+  clearTimeout(state.nextTimer);
+  state.nextTimer = null;
+  state.active = true;
+  state.misses = 0;
+  $('miss').textContent = '0';
+  state.duration = +$('duration').value;
 
-  active=true;
-  misses=0;
-  pos=0;
-  $('miss').textContent='0';
-
-  duration=+$('duration').value;
-  let candidates=words;
-  if(words.length>1 && lastWordKey!==null){
-    candidates=words.filter(w=>`${w[0]}\u0000${w[1]}`!==lastWordKey);
-  }
-
-  const w=candidates[Math.floor(Math.random()*candidates.length)];
-  lastWordKey=`${w[0]}\u0000${w[1]}`;
-
-  jp=w[0];
-  prepareTypingTargets(w[1]);
-
-  $('pitchNo').textContent=pitchIndex+1;
-  markCurrent();
+  const [label,reading] = chooseNextWord();
+  state.jp = label;
+  prepareTypingTargets(reading);
+  $('pitchNo').textContent = state.pitchIndex+1;
+  markCurrentPitch();
   renderWord();
-
   pitcherAnimation();
 
-  startAt=performance.now();
-  $('ball').style.opacity='1';
-  $('ball').style.top=`calc(8% + ${BALL_RELEASE_Y_OFFSET}px)`;
-  $('ball').style.transform='translate(-50%,-50%) scale(.55)';
-  $('ball').style.filter='blur(0px)';
-  raf=requestAnimationFrame(tick);
+  state.startAt = performance.now();
+  $('ball').style.opacity = '1';
+  $('ball').style.top = `calc(8% + ${BALL_RELEASE_Y_OFFSET}px)`;
+  $('ball').style.transform = 'translate(-50%,-50%) scale(.55)';
+  $('ball').style.filter = 'blur(0px)';
+  state.raf = requestAnimationFrame(tick);
 }
 
 function tick(now){
-  if(!active || paused) return;
+  if(!state.active || state.paused) return;
 
-  const e=(now-startAt)/1000;
-  const p=Math.min(1,e/duration);
-  const rem=Math.max(0,duration-e);
+  const elapsed = (now-state.startAt)/1000;
+  const progress = Math.min(1,elapsed/state.duration);
+  const remaining = Math.max(0,state.duration-elapsed);
+  $('time').textContent = remaining.toFixed(1);
+  $('timerFill').style.transform = `scaleX(${1-progress})`;
 
-  $('time').textContent=rem.toFixed(1);
-  $('timerFill').style.transform=`scaleX(${1-p})`;
+  const scale = .55 + progress*10.5;
+  const top = 8 + progress*65;
+  $('ball').style.top = `calc(${top}% + ${BALL_RELEASE_Y_OFFSET}px)`;
+  $('ball').style.transform = `translate(-50%,-50%) scale(${scale})`;
+  $('ball').style.filter = `blur(${Math.max(0,progress-.82)*8}px)`;
 
-  const scale=.55+p*10.5;
-  const top=8+p*65;
-  $('ball').style.top=`calc(${top}% + ${BALL_RELEASE_Y_OFFSET}px)`;
-  $('ball').style.transform=`translate(-50%,-50%) scale(${scale})`;
-  $('ball').style.filter=`blur(${Math.max(0,p-.82)*8}px)`;
-
-  if(p>=1){
+  if(progress>=1){
     timeoutPitch();
     return;
   }
-  raf=requestAnimationFrame(tick);
+  state.raf = requestAnimationFrame(tick);
 }
 
-
 function showKakushinHomerun(){
-  const overlay=$('kakushinOverlay');
-  if(!overlay)return;
+  const overlay = $('kakushinOverlay');
   overlay.classList.remove('show');
   void overlay.offsetWidth;
   overlay.classList.add('show');
@@ -813,201 +809,288 @@ function showKakushinHomerun(){
 }
 
 function finish(type){
-  if(!active || paused) return;
+  if(!state.active) return;
 
-  active=false;
-  cancelAnimationFrame(raf);
-  clearAnim();
-  $('ball').style.opacity='0';
+  state.active = false;
+  cancelAnimationFrame(state.raf);
+  clearPitcherAnimation();
+  $('ball').style.opacity = '0';
+  updateKeyboardGuide();
 
-  const r=$('result');
-  r.className='';
-  void r.offsetWidth;
+  const result = $('result');
+  result.className = '';
+  void result.offsetWidth;
 
-  let text='';
-  let cls='out';
+  let text = '';
+  let dotClass = 'out';
 
   if(type==='hr'){
-    text='ホームラン！';
-    cls='hr';
-    hrs++;
-    $('hrs').textContent=hrs;
+    text = 'ホームラン！';
+    dotClass = 'hr';
+    state.hrs++;
+    $('hrs').textContent = state.hrs;
     playSfx('homerun');
-    if(Math.random()<0.30){
-      showKakushinHomerun();
-    }
-
-    const f=document.createElement('div');
-    f.className='fly';
-    $('game').appendChild(f);
-    setTimeout(()=>f.remove(),1200);
+    if(Math.random()<.30) showKakushinHomerun();
+    const fly = document.createElement('div');
+    fly.className = 'fly';
+    $('game').appendChild(fly);
+    setTimeout(()=>fly.remove(),1200);
   }else if(type==='hit'){
-    text='ヒット！';
-    cls='hit';
+    text = 'ヒット！';
+    dotClass = 'hit';
     playSfx('hit');
   }else if(type==='swing'){
-    text='空振り！';
+    text = '空振り！';
     playSfx('strike');
   }else if(type==='strike'){
-    text='見逃しストライク！';
+    text = '見逃しストライク！';
     playSfx('strike');
   }else{
-    text='ボール！';
-    cls='ball';
+    text = 'ボール！';
+    dotClass = 'ball';
     beep(360,.12,'sine',.035);
   }
 
-  const d=$('dot'+pitchIndex);
-  d.classList.remove('current');
-  d.classList.add(cls);
-  d.textContent=type==='hr'?'HR':type==='hit'?'H':type==='ball'?'B':'×';
+  const dot = $(`dot${state.pitchIndex}`);
+  dot.classList.remove('current');
+  dot.classList.add(dotClass);
+  dot.textContent = type==='hr' ? 'HR' : type==='hit' ? 'H' : type==='ball' ? 'B' : '×';
 
-  r.textContent=text;
-  r.classList.add('show');
-  $('jp').textContent=text;
-  $('roman').textContent='';
-  updateKeyboardGuide();
-  $('time').textContent='--';
-  $('timerFill').style.transform='scaleX(1)';
+  result.textContent = text;
+  result.classList.add('show');
+  $('jp').textContent = text;
+  $('roman').textContent = '';
+  $('time').textContent = '--';
+  $('timerFill').style.transform = 'scaleX(1)';
 
-  pitchIndex++;
-
-  if(pitchIndex>=10){
-    nextTimer=setTimeout(endChallenge,1200);
+  state.pitchIndex++;
+  if(state.pitchIndex>=TOTAL_PITCHES){
+    state.nextTimer = setTimeout(endChallenge,1200);
   }else{
-    nextTimer=setTimeout(()=>{
-      // すでに次の投球が始まっていたら案内表示で上書きしない
-      if(active || paused || !challenge) return;
-      $('pitcher').src=frames[0];
-      markCurrent();
-      $('jp').textContent=`第${pitchIndex+1}球`;
-      $('roman').textContent='Enterキーで投球';
-      nextTimer=null;
+    state.nextTimer = setTimeout(()=>{
+      if(state.active || state.paused || !state.challenge) return;
+      $('pitcher').src = PITCHER_FRAMES[0];
+      markCurrentPitch();
+      $('jp').textContent = `第${state.pitchIndex+1}球`;
+      $('roman').textContent = 'Enterキーで投球';
+      state.nextTimer = null;
     },800);
   }
 }
 
 function timeoutPitch(){
-  finish(Math.random()<.7?'strike':'ball');
+  finish(Math.random()<.70 ? 'strike' : 'ball');
 }
 
 function endChallenge(){
-  challenge=false;
-  paused=false;
-  $('start').disabled=false;
-  $('duration').disabled=false;
-  if($('timeoutBtn')) if($('timeoutBtn')) $('timeoutBtn').disabled=true;
-  if($('timeoutBtn')) $('timeoutBtn').disabled=true;
-  $('pitcher').src=frames[0];
-  $('finalHR').textContent=hrs;
+  state.challenge = false;
+  state.paused = false;
+  $('start').disabled = false;
+  $('duration').disabled = false;
+  $('timeoutBtn').disabled = true;
+  $('pitcher').src = PITCHER_FRAMES[0];
+  $('finalHR').textContent = state.hrs;
 
-  let t='';
-  if(hrs===10) t='パーフェクト！ 10球全部ホームラン！';
-  else if(hrs>=8) t='すごい！ ホームラン王クラス！';
-  else if(hrs>=5) t='ナイスバッティング！ 半分以上ホームラン！';
-  else if(hrs>=2) t='いい調子！ 次はもっと打てそう！';
-  else t='もう一回挑戦してホームランを増やそう！';
+  let message = '';
+  if(state.hrs===10) message = 'パーフェクト！ 10球全部ホームラン！';
+  else if(state.hrs>=8) message = 'すごい！ ホームラン王クラス！';
+  else if(state.hrs>=5) message = 'ナイスバッティング！ 半分以上ホームラン！';
+  else if(state.hrs>=2) message = 'いい調子！ 次はもっと打てそう！';
+  else message = 'もう一回挑戦してホームランを増やそう！';
 
-  $('finalText').textContent=`10球中 ${hrs}本ホームラン！ ${t}`;
+  $('finalText').textContent = `10球中 ${state.hrs}本ホームラン！ ${message}`;
   $('summary').classList.add('show');
-  $('jp').textContent='チャレンジ終了！';
-  $('roman').textContent=`10球中 ${hrs}本ホームラン`;
+  $('jp').textContent = 'チャレンジ終了！';
+  $('roman').textContent = `10球中 ${state.hrs}本ホームラン`;
+  updateKeyboardGuide();
 }
 
-window.addEventListener('keydown',e=>{
-  if(($('wordModal') && $('wordModal').classList.contains('show')) || ($('timeoutModal') && $('timeoutModal').classList.contains('show'))) return;
+/* =========================================================
+   タイム
+   ========================================================= */
+function updateTimeoutChoiceUI(){
+  const seconds = state.selectedDuration ?? +$('duration').value;
+  $('timeoutCurrent').textContent = `${seconds}秒`;
+  $$('.timeoutChoices button').forEach(button=>{
+    button.classList.toggle('selected',+button.dataset.seconds===seconds);
+  });
+}
+
+function openTimeout(){
+  if(!state.challenge || state.paused) return;
+
+  state.paused = true;
+  state.selectedDuration = +$('duration').value;
+  if(state.active){
+    cancelAnimationFrame(state.raf);
+    clearPitcherAnimation();
+    state.pausedElapsed = (performance.now()-state.startAt)/1000;
+    state.pauseBallState = {
+      top:$('ball').style.top,
+      transform:$('ball').style.transform,
+      filter:$('ball').style.filter,
+      opacity:$('ball').style.opacity
+    };
+  }else{
+    state.pausedElapsed = 0;
+    state.pauseBallState = null;
+  }
+  updateTimeoutChoiceUI();
+  showModal('timeoutModal');
+}
+
+function resumeTimeout(){
+  if(!state.paused) return;
+  const wasActive = state.active;
+  const oldDuration = state.duration;
+
+  if(state.selectedDuration){
+    $('duration').value = String(state.selectedDuration);
+    state.duration = state.selectedDuration;
+  }
+  hideModal('timeoutModal');
+  state.paused = false;
+
+  if(wasActive){
+    const progress = oldDuration>0 ? Math.min(1,state.pausedElapsed/oldDuration) : 0;
+    state.startAt = performance.now() - progress*state.duration*1000;
+    if(state.pauseBallState){
+      Object.assign($('ball').style,state.pauseBallState);
+    }
+    state.raf = requestAnimationFrame(tick);
+  }
+}
+
+/* =========================================================
+   モーダル共通
+   ========================================================= */
+function showModal(id){
+  const modal = $(id);
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden','false');
+}
+function hideModal(id){
+  const modal = $(id);
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden','true');
+}
+function isModalOpen(){
+  return ['wordModal','timeoutModal','appearanceModal'].some(id=>$(id)?.classList.contains('show'));
+}
+
+/* =========================================================
+   キー入力 / イベント
+   ========================================================= */
+function handleGameKeydown(e){
+  if(isModalOpen()) return;
+
   if(e.code==='Space'){
     e.preventDefault();
-    if(!challenge && !active) resetChallenge();
+    if(!state.challenge && !state.active) resetChallenge();
     return;
   }
 
   if(e.key==='Enter'){
     e.preventDefault();
-    if(challenge && !active && pitchIndex<10) startPitch();
+    if(state.challenge && !state.active && state.pitchIndex<TOTAL_PITCHES) startPitch();
     return;
   }
 
-  if(!active || e.key.length!==1) return;
-
-  const k=e.key.toLowerCase();
-  const candidate=typedBuffer+k;
-  const matches=matchingTargets(candidate);
+  if(!state.active || e.key.length!==1) return;
+  const key = e.key.toLowerCase();
+  const candidate = state.typedBuffer + key;
+  const matches = matchingTargets(candidate);
 
   if(matches.length){
     beep(520,.035,'sine',.018);
-    flashKeyboardKey(k,'correct');
-    typedBuffer=candidate;
-    pos=typedBuffer.length;
-
-    // 入力した経路に合うローマ字表記へ表示も自動で切り替える
-    target=matches[0];
+    state.typedBuffer = candidate;
+    state.target = matches[0];
     renderWord();
-
-    if(acceptedTargets.includes(typedBuffer)){
-      finish(misses===0?'hr':misses<=2?'hit':'swing');
+    if(state.acceptedTargets.includes(state.typedBuffer)){
+      finish(state.misses===0 ? 'hr' : state.misses<=2 ? 'hit' : 'swing');
     }
   }else{
-    flashKeyboardKey(k,'wrong');
-    misses++;
-    $('miss').textContent=misses;
+    state.misses++;
+    $('miss').textContent = state.misses;
     beep(95,.07,'square',.035);
     $('roman').classList.remove('wrongFlash');
     void $('roman').offsetWidth;
     $('roman').classList.add('wrongFlash');
   }
-});
+}
 
-$('start').addEventListener('click',resetChallenge);
-$('again').addEventListener('click',resetChallenge);
+function bindEvents(){
+  window.addEventListener('keydown',handleGameKeydown);
+  window.addEventListener('keydown',e=>{
+    if(e.key!=='Escape') return;
+    ['wordModal','timeoutModal','appearanceModal'].forEach(id=>{
+      if($(id)?.classList.contains('show')) hideModal(id);
+    });
+  },true);
 
-buildDots();
+  $('start').addEventListener('click',resetChallenge);
+  $('again').addEventListener('click',resetChallenge);
 
+  $('wordSettingsBtn').addEventListener('click',openWordModal);
+  $('closeWordsBtn').addEventListener('click',()=>hideModal('wordModal'));
+  $('closeWordsX').addEventListener('click',()=>hideModal('wordModal'));
+  $('saveWordsBtn').addEventListener('click',saveCustomWords);
+  $('resetWordsBtn').addEventListener('click',resetWords);
+  $('addWordRowBtn').addEventListener('click',()=>addWordRow('','',true));
 
-if($('wordSettingsBtn')) $('wordSettingsBtn').addEventListener('click',openWordModal);
-if($('closeWordsBtn')) $('closeWordsBtn').addEventListener('click',closeWordModal);
-if($('saveWordsBtn')) $('saveWordsBtn').addEventListener('click',saveCustomWords);
-if($('resetWordsBtn')) $('resetWordsBtn').addEventListener('click',resetWords);
-$('wordModal').addEventListener('click',e=>{
-  if(e.target===$('wordModal'))closeWordModal();
-});
-
-window.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && $('wordModal').classList.contains('show')){
-    e.preventDefault();
-    closeWordModal();
-  }
-},true);
-
-
-$('addWordRowBtn').addEventListener('click',()=>addWordRow('','',true));
-$('closeWordsX').addEventListener('click',closeWordModal);
-
-
-if($('timeoutBtn')) $('timeoutBtn').disabled=true;
-
-if($('timeoutBtn')) $('timeoutBtn').addEventListener('click',openTimeout);
-
-document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    selectedDuration=+btn.dataset.seconds;
-    updateTimeoutChoiceUI();
+  $('timeoutBtn').addEventListener('click',openTimeout);
+  $('resumeBtn').addEventListener('click',resumeTimeout);
+  $$('.timeoutChoices button').forEach(button=>{
+    button.addEventListener('click',()=>{
+      state.selectedDuration = +button.dataset.seconds;
+      updateTimeoutChoiceUI();
+    });
   });
+
+  $('backgroundSelect').addEventListener('change',e=>selectStadium(e.target.value));
+  $('appearanceBgSelect').addEventListener('change',e=>selectStadium(e.target.value));
+  $('appearanceBtn').addEventListener('click',()=>{
+    syncAppearanceControls();
+    renderCustomStadiumList();
+    showModal('appearanceModal');
+  });
+  $('appearanceCloseX').addEventListener('click',()=>hideModal('appearanceModal'));
+  $('appearanceDoneBtn').addEventListener('click',()=>hideModal('appearanceModal'));
+  $('appearanceResetBtn').addEventListener('click',resetCurrentAppearance);
+
+  [
+    'bgPosX','bgPosY','bgScale',
+    'pitcherPosX','pitcherPosY','pitcherScale',
+    'keyboardPosX','keyboardPosY','keyboardScale',
+    'wordPanelPosX','wordPanelPosY','wordPanelScale'
+  ].forEach(id=>$(id).addEventListener('input',updateAppearanceFromControls));
+
+  $('stadiumFileInput').addEventListener('change',e=>{
+    state.selectedCustomFile = e.target.files?.[0] || null;
+    $('stadiumFileName').textContent = state.selectedCustomFile ? state.selectedCustomFile.name : '画像未選択';
+  });
+  $('stadiumUploadBtn').addEventListener('click',addCustomStadium);
+
+  $$('.modal').forEach(modal=>{
+    modal.addEventListener('click',e=>{
+      if(e.target===modal && modal.id!=='timeoutModal') hideModal(modal.id);
+    });
+  });
+}
+
+/* =========================================================
+   初期化
+   ========================================================= */
+async function init(){
+  $('pitcher').src = PITCHER_FRAMES[0];
+  $('timeoutBtn').disabled = true;
+  buildPitchDots();
+  updateKeyboardGuide();
+  bindEvents();
+  await initStadiums();
+}
+
+init().catch(error=>{
+  console.error('初期化エラー:',error);
+  alert('ゲームの初期化中にエラーが発生しました。ページを再読み込みしてください。');
 });
-
-if($('resumeBtn')) $('resumeBtn').addEventListener('click',resumeTimeout);
-
-updateKeyboardGuide();
-
-
-
-if($('backgroundSelect'))$('backgroundSelect').addEventListener('change',e=>selectStadium(e.target.value));
-if($('appearanceBgSelect'))$('appearanceBgSelect').addEventListener('change',e=>selectStadium(e.target.value));
-if($('appearanceBtn'))$('appearanceBtn').addEventListener('click',openAppearance);
-if($('appearanceCloseX'))$('appearanceCloseX').addEventListener('click',closeAppearance);
-if($('appearanceDoneBtn'))$('appearanceDoneBtn').addEventListener('click',closeAppearance);
-if($('appearanceResetBtn'))$('appearanceResetBtn').addEventListener('click',resetAppearance);
-['bgPosX','bgPosY','bgScale','pitcherPosX','pitcherPosY','pitcherScale','keyboardPosX','keyboardPosY','keyboardScale','wordPanelPosX','wordPanelPosY','wordPanelScale'].forEach(id=>{if($(id))$(id).addEventListener('input',updateAppearance)});
-if($('stadiumFileInput'))$('stadiumFileInput').addEventListener('change',e=>{selectedCustomFile=e.target.files?.[0]||null;$('stadiumFileName').textContent=selectedCustomFile?selectedCustomFile.name:'画像未選択'});
-if($('stadiumUploadBtn'))$('stadiumUploadBtn').addEventListener('click',addCustomStadium);
-initStadiums();
