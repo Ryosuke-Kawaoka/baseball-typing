@@ -1094,3 +1094,127 @@ init().catch(error=>{
   console.error('初期化エラー:',error);
   alert('ゲームの初期化中にエラーが発生しました。ページを再読み込みしてください。');
 });
+
+
+/* ===== v28 見た目変更パネルのドラッグ移動 ===== */
+const appearanceDragState={
+  dragging:false,
+  pointerId:null,
+  offsetX:0,
+  offsetY:0
+};
+
+function clampAppearanceCard(left,top){
+  const card=document.querySelector('.appearanceCard');
+  if(!card)return {left,top};
+
+  const margin=8;
+  const w=card.offsetWidth;
+  const h=card.offsetHeight;
+
+  const minLeft=margin;
+  const maxLeft=Math.max(margin,window.innerWidth-w-margin);
+  const minTop=margin;
+  const maxTop=Math.max(margin,window.innerHeight-h-margin);
+
+  return {
+    left:Math.min(Math.max(left,minLeft),maxLeft),
+    top:Math.min(Math.max(top,minTop),maxTop)
+  };
+}
+
+function startAppearanceDrag(e){
+  if(e.button!==undefined && e.button!==0)return;
+
+  const card=document.querySelector('.appearanceCard');
+  const handle=$('appearanceDragHandle');
+  if(!card||!handle)return;
+
+  const rect=card.getBoundingClientRect();
+
+  // 初回ドラッグ時に中央配置の transform を解除し、
+  // 現在見えている位置を px 座標へ変換する。
+  card.style.left=`${rect.left}px`;
+  card.style.top=`${rect.top}px`;
+  card.style.transform='none';
+
+  appearanceDragState.dragging=true;
+  appearanceDragState.pointerId=e.pointerId;
+  appearanceDragState.offsetX=e.clientX-rect.left;
+  appearanceDragState.offsetY=e.clientY-rect.top;
+
+  card.classList.add('isDragging');
+
+  if(handle.setPointerCapture && e.pointerId!==undefined){
+    handle.setPointerCapture(e.pointerId);
+  }
+  e.preventDefault();
+}
+
+function moveAppearanceDrag(e){
+  if(!appearanceDragState.dragging)return;
+  if(appearanceDragState.pointerId!==null &&
+     e.pointerId!==undefined &&
+     e.pointerId!==appearanceDragState.pointerId)return;
+
+  const card=document.querySelector('.appearanceCard');
+  if(!card)return;
+
+  const desiredLeft=e.clientX-appearanceDragState.offsetX;
+  const desiredTop=e.clientY-appearanceDragState.offsetY;
+  const p=clampAppearanceCard(desiredLeft,desiredTop);
+
+  card.style.left=`${p.left}px`;
+  card.style.top=`${p.top}px`;
+  e.preventDefault();
+}
+
+function endAppearanceDrag(e){
+  if(!appearanceDragState.dragging)return;
+  if(appearanceDragState.pointerId!==null &&
+     e.pointerId!==undefined &&
+     e.pointerId!==appearanceDragState.pointerId)return;
+
+  const card=document.querySelector('.appearanceCard');
+  const handle=$('appearanceDragHandle');
+
+  appearanceDragState.dragging=false;
+  appearanceDragState.pointerId=null;
+  if(card)card.classList.remove('isDragging');
+
+  if(handle && handle.releasePointerCapture && e.pointerId!==undefined){
+    try{handle.releasePointerCapture(e.pointerId)}catch(err){}
+  }
+}
+
+function resetAppearancePanelPosition(){
+  const card=document.querySelector('.appearanceCard');
+  if(!card)return;
+  card.style.left='50%';
+  card.style.top='50%';
+  card.style.transform='translate(-50%,-50%)';
+}
+
+function keepAppearancePanelOnScreen(){
+  const modal=$('appearanceModal');
+  const card=document.querySelector('.appearanceCard');
+  if(!modal||!card||!modal.classList.contains('show'))return;
+
+  const rect=card.getBoundingClientRect();
+
+  // 中央配置のままなら何もしない。
+  if(card.style.transform!=='none')return;
+
+  const p=clampAppearanceCard(rect.left,rect.top);
+  card.style.left=`${p.left}px`;
+  card.style.top=`${p.top}px`;
+}
+
+if($('appearanceDragHandle')){
+  $('appearanceDragHandle').addEventListener('pointerdown',startAppearanceDrag);
+  $('appearanceDragHandle').addEventListener('pointermove',moveAppearanceDrag);
+  $('appearanceDragHandle').addEventListener('pointerup',endAppearanceDrag);
+  $('appearanceDragHandle').addEventListener('pointercancel',endAppearanceDrag);
+}
+
+window.addEventListener('resize',keepAppearancePanelOnScreen);

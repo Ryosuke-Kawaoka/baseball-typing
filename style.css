@@ -335,3 +335,74 @@ select{background:#fff;color:#111}
   .key{width:31px;height:29px;font-size:.74rem}.keyboardRow{gap:4px}.keyboardRow.row2{padding-left:8px}.keyboardRow.row3{padding-left:18px}
   .appearanceRow{grid-template-columns:84px 1fr 54px;gap:7px}.uploadGrid{grid-template-columns:1fr 1fr}.uploadGrid input[type=text]{grid-column:1/-1}
 }
+
+
+/* ===== v28 draggable appearance panel ===== */
+.srOnly{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
+.appearanceModal{
+  /* 背景を見ながら調整したいので、暗幕をかなり薄くする */
+  background:rgba(2,8,18,.16) !important;
+  backdrop-filter:none !important;
+  pointer-events:none;
+}
+
+.appearanceCard{
+  pointer-events:auto;
+  position:absolute !important;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  touch-action:auto;
+}
+
+.appearanceDragHandle{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:44px;
+  margin:-6px 34px 4px -4px;
+  padding:6px 8px;
+  border-radius:10px;
+  cursor:grab;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+  font-size:1.35rem;
+  font-weight:1000;
+}
+
+.appearanceDragHandle:active{
+  cursor:grabbing;
+}
+
+.dragGrip{
+  font-size:1.35rem;
+  opacity:.7;
+  line-height:1;
+}
+
+.dragHint{
+  margin-left:auto;
+  font-size:.72rem;
+  font-weight:700;
+  opacity:.55;
+}
+
+.appearanceCard.isDragging{
+  box-shadow:0 34px 90px rgba(0,0,0,.7);
+}
+
+@media(max-width:620px){
+  .dragHint{display:none}
+}
