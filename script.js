@@ -55,6 +55,100 @@ function loadBackground(){
 }
 
 
+
+const BG_ADJUST_STORAGE_KEY='typingBaseballBackgroundAdjustV1';
+
+const BG_DEFAULTS={
+  escon:{x:50,y:50,scale:100},
+  dodgers:{x:50,y:50,scale:100}
+};
+
+function getBackgroundAdjustments(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(BG_ADJUST_STORAGE_KEY));
+    return {
+      escon:{...BG_DEFAULTS.escon,...(saved?.escon||{})},
+      dodgers:{...BG_DEFAULTS.dodgers,...(saved?.dodgers||{})}
+    };
+  }catch(e){
+    return JSON.parse(JSON.stringify(BG_DEFAULTS));
+  }
+}
+
+let backgroundAdjustments=getBackgroundAdjustments();
+
+function currentBackgroundName(){
+  return $('backgroundSelect')?.value==='dodgers' ? 'dodgers' : 'escon';
+}
+
+function applyBackgroundAdjustment(name=currentBackgroundName()){
+  const app=$('app');
+  if(!app)return;
+
+  const a=backgroundAdjustments[name] || BG_DEFAULTS[name];
+  app.style.setProperty('background-position',`${a.x}% ${a.y}%`,'important');
+
+  // 100%は従来の cover。101%以上/99%以下では数値指定にしてズーム調整可能にする
+  if(a.scale===100){
+    app.style.setProperty('background-size','cover','important');
+  }else{
+    app.style.setProperty('background-size',`${a.scale}% auto`,'important');
+  }
+}
+
+function saveBackgroundAdjustments(){
+  try{
+    localStorage.setItem(BG_ADJUST_STORAGE_KEY,JSON.stringify(backgroundAdjustments));
+  }catch(e){}
+}
+
+function syncBackgroundAdjustmentControls(){
+  const name=currentBackgroundName();
+  const a=backgroundAdjustments[name] || BG_DEFAULTS[name];
+
+  $('bgPosX').value=a.x;
+  $('bgPosY').value=a.y;
+  $('bgScale').value=a.scale;
+  $('bgPosXValue').textContent=`${a.x}%`;
+  $('bgPosYValue').textContent=`${a.y}%`;
+  $('bgScaleValue').textContent=`${a.scale}%`;
+}
+
+function updateBackgroundAdjustmentFromControls(){
+  const name=currentBackgroundName();
+  backgroundAdjustments[name]={
+    x:+$('bgPosX').value,
+    y:+$('bgPosY').value,
+    scale:+$('bgScale').value
+  };
+
+  $('bgPosXValue').textContent=`${backgroundAdjustments[name].x}%`;
+  $('bgPosYValue').textContent=`${backgroundAdjustments[name].y}%`;
+  $('bgScaleValue').textContent=`${backgroundAdjustments[name].scale}%`;
+
+  applyBackgroundAdjustment(name);
+  saveBackgroundAdjustments();
+}
+
+function openBackgroundAdjust(){
+  syncBackgroundAdjustmentControls();
+  $('backgroundAdjustModal').classList.add('show');
+  $('backgroundAdjustModal').setAttribute('aria-hidden','false');
+}
+
+function closeBackgroundAdjust(){
+  $('backgroundAdjustModal').classList.remove('show');
+  $('backgroundAdjustModal').setAttribute('aria-hidden','true');
+}
+
+function resetBackgroundAdjust(){
+  const name=currentBackgroundName();
+  backgroundAdjustments[name]={...BG_DEFAULTS[name]};
+  saveBackgroundAdjustments();
+  syncBackgroundAdjustmentControls();
+  applyBackgroundAdjustment(name);
+}
+
 const sfx = {
   hit: new Audio('hit.mp3'),
   homerun: new Audio('homerun.mp3'),
@@ -858,6 +952,23 @@ updateKeyboardGuide();
 if($('backgroundSelect')){
   $('backgroundSelect').addEventListener('change',e=>{
     applyBackground(e.target.value);
+    if(typeof syncBackgroundAdjustmentControls==='function') syncBackgroundAdjustmentControls();
   });
 }
 loadBackground();
+
+
+if($('backgroundAdjustBtn')) $('backgroundAdjustBtn').addEventListener('click',openBackgroundAdjust);
+if($('backgroundAdjustCloseX')) $('backgroundAdjustCloseX').addEventListener('click',closeBackgroundAdjust);
+if($('bgAdjustDoneBtn')) $('bgAdjustDoneBtn').addEventListener('click',closeBackgroundAdjust);
+if($('bgResetBtn')) $('bgResetBtn').addEventListener('click',resetBackgroundAdjust);
+
+['bgPosX','bgPosY','bgScale'].forEach(id=>{
+  if($(id)) $(id).addEventListener('input',updateBackgroundAdjustmentFromControls);
+});
+
+if($('backgroundAdjustModal')){
+  $('backgroundAdjustModal').addEventListener('click',e=>{
+    if(e.target===$('backgroundAdjustModal')) closeBackgroundAdjust();
+  });
+}
