@@ -114,7 +114,6 @@ let pos=0;
 let misses=0;
 let hrs=0;
 let pitchIndex=0;
-  lastWordKey=null;
 let startAt=0;
 let duration=10;
 let raf=null;
@@ -128,7 +127,7 @@ let pauseBallState=null;
 let selectedDuration=null;
 const BALL_RELEASE_Y_OFFSET = -10;
 
-$('pitcher').src=frames[0];
+if($('pitcher')) $('pitcher').src=frames[0];
 
 function playSfx(name){
   const a=sfx[name];
@@ -627,6 +626,7 @@ function resetChallenge(){
   challenge=true;
   hrs=0;
   pitchIndex=0;
+  lastWordKey=null;
   $('hrs').textContent='0';
   $('pitchNo').textContent='0';
   $('pitcher').src=frames[0];
@@ -802,8 +802,8 @@ function endChallenge(){
   paused=false;
   $('start').disabled=false;
   $('duration').disabled=false;
+  if($('timeoutBtn')) if($('timeoutBtn')) $('timeoutBtn').disabled=true;
   if($('timeoutBtn')) $('timeoutBtn').disabled=true;
-  $('timeoutBtn').disabled=true;
   $('pitcher').src=frames[0];
   $('finalHR').textContent=hrs;
 
@@ -870,10 +870,10 @@ $('again').addEventListener('click',resetChallenge);
 buildDots();
 
 
-$('wordSettingsBtn').addEventListener('click',openWordModal);
-$('closeWordsBtn').addEventListener('click',closeWordModal);
-$('saveWordsBtn').addEventListener('click',saveCustomWords);
-$('resetWordsBtn').addEventListener('click',resetWords);
+if($('wordSettingsBtn')) $('wordSettingsBtn').addEventListener('click',openWordModal);
+if($('closeWordsBtn')) $('closeWordsBtn').addEventListener('click',closeWordModal);
+if($('saveWordsBtn')) $('saveWordsBtn').addEventListener('click',saveCustomWords);
+if($('resetWordsBtn')) $('resetWordsBtn').addEventListener('click',resetWords);
 $('wordModal').addEventListener('click',e=>{
   if(e.target===$('wordModal'))closeWordModal();
 });
@@ -890,9 +890,9 @@ $('addWordRowBtn').addEventListener('click',()=>addWordRow('','',true));
 $('closeWordsX').addEventListener('click',closeWordModal);
 
 
-$('timeoutBtn').disabled=true;
+if($('timeoutBtn')) $('timeoutBtn').disabled=true;
 
-$('timeoutBtn').addEventListener('click',openTimeout);
+if($('timeoutBtn')) $('timeoutBtn').addEventListener('click',openTimeout);
 
 document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -901,7 +901,7 @@ document.querySelectorAll('.timeoutChoices button').forEach(btn=>{
   });
 });
 
-$('resumeBtn').addEventListener('click',resumeTimeout);
+if($('resumeBtn')) $('resumeBtn').addEventListener('click',resumeTimeout);
 
 updateKeyboardGuide();
 
