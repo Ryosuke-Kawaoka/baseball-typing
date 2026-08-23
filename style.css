@@ -1526,3 +1526,50 @@ body{
 #stadiumUploadBtn{background:#ffd54a;color:#241800}.stadiumFileName{margin-top:8px;opacity:.72;font-size:.8rem}
 .customStadiumList{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.customStadiumChip{display:inline-flex;align-items:center;gap:5px;padding:6px 8px 6px 10px;border-radius:999px;background:#132844;border:1px solid rgba(255,255,255,.14);font-size:.82rem}.customStadiumChip button{background:transparent;color:#ff9ba3;padding:1px 4px}
 .appearanceActions{display:flex;gap:9px;justify-content:flex-end;margin-top:16px}.appearanceActions .primary{background:#ffd54a;color:#241800}
+
+.customStadiumList{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:12px;
+}
+.customStadiumItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 10px 9px 12px;
+  border-radius:12px;
+  background:#132844;
+  border:1px solid rgba(255,255,255,.14);
+}
+.customStadiumName{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-weight:800;
+}
+.customStadiumDelete{
+  flex:0 0 auto;
+  padding:7px 12px!important;
+  border-radius:9px!important;
+  background:#7d2630!important;
+  color:#fff!important;
+  font-weight:900!important;
+}
+.customStadiumDelete:hover{
+  filter:brightness(1.15);
+}
+.customStadiumEmpty{
+  padding:9px 2px;
+  opacity:.62;
+  font-size:.85rem;
+}
+
+
+/* ===== v25 keyboard + word panel appearance adjustment ===== */
+#keyboardGuide,
+.wordPanel{
+  transform-origin:center center !important;
+}

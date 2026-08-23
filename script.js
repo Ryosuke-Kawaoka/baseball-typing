@@ -33,7 +33,7 @@ const BUILTIN=[
 {id:'dodgers',name:'ドジャースタジアム',url:'stadium_dodgers.jpg',builtin:true}
 ];
 let stadiumLibrary=[...BUILTIN], selectedStadiumId='escon', selectedCustomFile=null;
-const DEFAULT_APP={bgX:50,bgY:50,bgScale:100,pitcherX:50,pitcherY:0,pitcherScale:100};
+const DEFAULT_APP={bgX:50,bgY:50,bgScale:100,pitcherX:50,pitcherY:0,pitcherScale:100,keyboardX:50,keyboardY:0,keyboardScale:100,wordX:50,wordY:0,wordScale:100};
 let appearanceStore=(()=>{try{return JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY))||{}}catch(e){return {}}})();
 const saveAppStore=()=>{try{localStorage.setItem(APPEARANCE_STORAGE_KEY,JSON.stringify(appearanceStore))}catch(e){}};
 const appFor=id=>({...DEFAULT_APP,...(appearanceStore[id]||{})});
@@ -62,13 +62,43 @@ function applyAppearance(){
     p.style.setProperty('transform',`translateX(-50%) scale(${a.pitcherScale/100})`,'important');
     p.style.setProperty('transform-origin','50% 100%','important')
   }
+
+  const kb=$('keyboardGuide');
+  if(kb){
+    kb.style.setProperty('left',`${a.keyboardX}%`,'important');
+    kb.style.setProperty('bottom',`${a.keyboardY}px`,'important');
+    kb.style.setProperty('transform',`translateX(-50%) scale(${a.keyboardScale/100})`,'important');
+    kb.style.setProperty('transform-origin','50% 100%','important');
+  }
+
+  const wp=document.querySelector('.wordPanel');
+  if(wp){
+    wp.style.setProperty('left',`${a.wordX}%`,'important');
+    wp.style.setProperty('bottom',`${a.wordY}px`,'important');
+    wp.style.setProperty('transform',`translateX(-50%) scale(${a.wordScale/100})`,'important');
+    wp.style.setProperty('transform-origin','50% 100%','important');
+  }
 }
 function syncAppearance(){
   if(!$('bgPosX'))return;const a=appFor(selectedStadiumId);
-  const vals={bgPosX:a.bgX,bgPosY:a.bgY,bgScale:a.bgScale,pitcherPosX:a.pitcherX,pitcherPosY:a.pitcherY,pitcherScale:a.pitcherScale};
-  Object.entries(vals).forEach(([id,v])=>$(id).value=v);
+  const vals={
+    bgPosX:a.bgX,bgPosY:a.bgY,bgScale:a.bgScale,
+    pitcherPosX:a.pitcherX,pitcherPosY:a.pitcherY,pitcherScale:a.pitcherScale,
+    keyboardPosX:a.keyboardX,keyboardPosY:a.keyboardY,keyboardScale:a.keyboardScale,
+    wordPanelPosX:a.wordX,wordPanelPosY:a.wordY,wordPanelScale:a.wordScale
+  };
+  Object.entries(vals).forEach(([id,v])=>{ if($(id)) $(id).value=v; });
+
   $('bgPosXValue').textContent=`${a.bgX}%`;$('bgPosYValue').textContent=`${a.bgY}%`;$('bgScaleValue').textContent=`${a.bgScale}%`;
   $('pitcherPosXValue').textContent=`${a.pitcherX}%`;$('pitcherPosYValue').textContent=`${a.pitcherY}px`;$('pitcherScaleValue').textContent=`${a.pitcherScale}%`;
+
+  if($('keyboardPosXValue')) $('keyboardPosXValue').textContent=`${a.keyboardX}%`;
+  if($('keyboardPosYValue')) $('keyboardPosYValue').textContent=`${a.keyboardY}px`;
+  if($('keyboardScaleValue')) $('keyboardScaleValue').textContent=`${a.keyboardScale}%`;
+
+  if($('wordPanelPosXValue')) $('wordPanelPosXValue').textContent=`${a.wordX}%`;
+  if($('wordPanelPosYValue')) $('wordPanelPosYValue').textContent=`${a.wordY}px`;
+  if($('wordPanelScaleValue')) $('wordPanelScaleValue').textContent=`${a.wordScale}%`;
   if($('appearanceBgSelect'))$('appearanceBgSelect').value=selectedStadiumId
 }
 function selectStadium(id){
@@ -76,13 +106,77 @@ function selectStadium(id){
   try{localStorage.setItem(BG_STORAGE_KEY,id)}catch(e){};rebuildSelectors();applyAppearance();syncAppearance()
 }
 function updateAppearance(){
-  appearanceStore[selectedStadiumId]={bgX:+$('bgPosX').value,bgY:+$('bgPosY').value,bgScale:+$('bgScale').value,pitcherX:+$('pitcherPosX').value,pitcherY:+$('pitcherPosY').value,pitcherScale:+$('pitcherScale').value};
+  appearanceStore[selectedStadiumId]={
+    bgX:+$('bgPosX').value,
+    bgY:+$('bgPosY').value,
+    bgScale:+$('bgScale').value,
+    pitcherX:+$('pitcherPosX').value,
+    pitcherY:+$('pitcherPosY').value,
+    pitcherScale:+$('pitcherScale').value,
+    keyboardX:+$('keyboardPosX').value,
+    keyboardY:+$('keyboardPosY').value,
+    keyboardScale:+$('keyboardScale').value,
+    wordX:+$('wordPanelPosX').value,
+    wordY:+$('wordPanelPosY').value,
+    wordScale:+$('wordPanelScale').value
+  };
   saveAppStore();syncAppearance();applyAppearance()
 }
 function resetAppearance(){delete appearanceStore[selectedStadiumId];saveAppStore();syncAppearance();applyAppearance()}
 function renderCustomList(){
-  const box=$('customStadiumList');if(!box)return;box.innerHTML='';
-  stadiumLibrary.filter(x=>!x.builtin).forEach(s=>{const c=document.createElement('div');c.className='customStadiumChip';c.innerHTML=`<span>${s.name}</span>`;const b=document.createElement('button');b.type='button';b.textContent='×';b.onclick=async()=>{if(!confirm(`「${s.name}」を削除しますか？`))return;await dbDel(s.id);stadiumLibrary=stadiumLibrary.filter(x=>x.id!==s.id);delete appearanceStore[s.id];saveAppStore();if(selectedStadiumId===s.id)selectedStadiumId='escon';rebuildSelectors();renderCustomList();selectStadium(selectedStadiumId)};c.appendChild(b);box.appendChild(c)})
+  const box=$('customStadiumList');
+  if(!box)return;
+  box.innerHTML='';
+
+  const custom=stadiumLibrary.filter(x=>!x.builtin);
+  if(custom.length===0){
+    const empty=document.createElement('div');
+    empty.className='customStadiumEmpty';
+    empty.textContent='追加した球場はありません';
+    box.appendChild(empty);
+    return;
+  }
+
+  custom.forEach(s=>{
+    const row=document.createElement('div');
+    row.className='customStadiumItem';
+
+    const name=document.createElement('span');
+    name.className='customStadiumName';
+    name.textContent=s.name;
+
+    const del=document.createElement('button');
+    del.type='button';
+    del.className='customStadiumDelete';
+    del.textContent='削除';
+
+    del.addEventListener('click',async()=>{
+      if(!confirm(`「${s.name}」を削除しますか？`))return;
+
+      try{
+        await dbDel(s.id);
+        stadiumLibrary=stadiumLibrary.filter(x=>x.id!==s.id);
+        delete appearanceStore[s.id];
+        saveAppStore();
+
+        if(selectedStadiumId===s.id){
+          selectedStadiumId='escon';
+          try{localStorage.setItem(BG_STORAGE_KEY,selectedStadiumId)}catch(e){}
+        }
+
+        rebuildSelectors();
+        renderCustomList();
+        selectStadium(selectedStadiumId);
+      }catch(err){
+        console.error(err);
+        alert('球場画像を削除できませんでした。');
+      }
+    });
+
+    row.appendChild(name);
+    row.appendChild(del);
+    box.appendChild(row);
+  });
 }
 async function addCustomStadium(){
   const name=$('stadiumNameInput').value.trim(),file=selectedCustomFile;if(!name)return alert('球場名を入力してください。');if(!file)return alert('画像を選んでください。');
@@ -913,7 +1007,7 @@ if($('appearanceBtn'))$('appearanceBtn').addEventListener('click',openAppearance
 if($('appearanceCloseX'))$('appearanceCloseX').addEventListener('click',closeAppearance);
 if($('appearanceDoneBtn'))$('appearanceDoneBtn').addEventListener('click',closeAppearance);
 if($('appearanceResetBtn'))$('appearanceResetBtn').addEventListener('click',resetAppearance);
-['bgPosX','bgPosY','bgScale','pitcherPosX','pitcherPosY','pitcherScale'].forEach(id=>{if($(id))$(id).addEventListener('input',updateAppearance)});
+['bgPosX','bgPosY','bgScale','pitcherPosX','pitcherPosY','pitcherScale','keyboardPosX','keyboardPosY','keyboardScale','wordPanelPosX','wordPanelPosY','wordPanelScale'].forEach(id=>{if($(id))$(id).addEventListener('input',updateAppearance)});
 if($('stadiumFileInput'))$('stadiumFileInput').addEventListener('change',e=>{selectedCustomFile=e.target.files?.[0]||null;$('stadiumFileName').textContent=selectedCustomFile?selectedCustomFile.name:'画像未選択'});
 if($('stadiumUploadBtn'))$('stadiumUploadBtn').addEventListener('click',addCustomStadium);
 initStadiums();

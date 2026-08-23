@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>タイピング ホームランチャレンジ</title>
-<link rel="stylesheet" href="style.css?v=23" />
+<link rel="stylesheet" href="style.css?v=25" />
 </head><body><div id="app">
 <div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
 <div class="hud">
@@ -77,6 +77,21 @@
 <div class="appearanceRow"><label>投手・大きさ</label><input id="pitcherScale" type="range" min="50" max="220" step="1"><output id="pitcherScaleValue"></output></div>
 </div>
 
+
+<div class="appearanceSection">
+<div class="appearanceSectionTitle">キーボード</div>
+<div class="appearanceRow"><label>左右</label><input id="keyboardPosX" type="range" min="0" max="100" step=".5"><output id="keyboardPosXValue"></output></div>
+<div class="appearanceRow"><label>上下</label><input id="keyboardPosY" type="range" min="-250" max="250" step="1"><output id="keyboardPosYValue"></output></div>
+<div class="appearanceRow"><label>大きさ</label><input id="keyboardScale" type="range" min="50" max="160" step="1"><output id="keyboardScaleValue"></output></div>
+</div>
+
+<div class="appearanceSection">
+<div class="appearanceSectionTitle">出題文字</div>
+<div class="appearanceRow"><label>左右</label><input id="wordPanelPosX" type="range" min="0" max="100" step=".5"><output id="wordPanelPosXValue"></output></div>
+<div class="appearanceRow"><label>上下</label><input id="wordPanelPosY" type="range" min="-250" max="250" step="1"><output id="wordPanelPosYValue"></output></div>
+<div class="appearanceRow"><label>大きさ</label><input id="wordPanelScale" type="range" min="60" max="160" step="1"><output id="wordPanelScaleValue"></output></div>
+</div>
+
 <div class="appearanceSection">
 <div class="appearanceSectionTitle">球場を追加</div>
 <div class="uploadHelp">球場名を入力して画像を選ぶと、このブラウザの背景一覧に追加されます。</div>
@@ -145,4 +160,4 @@
 </div>
 
 <div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
-<script src="script.js?v=23"></script></body></html>
+<script src="script.js?v=25"></script></body></html>
