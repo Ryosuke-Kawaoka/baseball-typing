@@ -515,6 +515,8 @@ function currentBallReleaseYOffset(){
 function updateBallReleasePreview(){
   const preview = $('ballReleasePreview');
   if(!preview) return;
+  const appearance = appearanceFor(state.selectedStadiumId);
+  preview.style.left = `${appearance.pitcherX}%`;
   preview.style.top = `calc(8% + ${currentBallReleaseYOffset()}px)`;
 }
 
@@ -1071,15 +1073,23 @@ function bindEvents(){
   $('appearanceBtn').addEventListener('click',()=>{
     syncAppearanceControls();
     renderCustomStadiumList();
+    updateBallReleasePreview();
+    if($('ballReleasePreview')) $('ballReleasePreview').style.display='block';
     showModal('appearanceModal');
   });
-  $('appearanceCloseX').addEventListener('click',()=>hideModal('appearanceModal'));
-  $('appearanceDoneBtn').addEventListener('click',()=>hideModal('appearanceModal'));
+  $('appearanceCloseX').addEventListener('click',()=>{
+    if($('ballReleasePreview')) $('ballReleasePreview').style.display='none';
+    hideModal('appearanceModal');
+  });
+  $('appearanceDoneBtn').addEventListener('click',()=>{
+    if($('ballReleasePreview')) $('ballReleasePreview').style.display='none';
+    hideModal('appearanceModal');
+  });
   $('appearanceResetBtn').addEventListener('click',resetCurrentAppearance);
 
   [
     'bgPosX','bgPosY','bgScale',
-    'pitcherPosX','pitcherPosY','pitcherScale',
+    'pitcherPosX','pitcherPosY','pitcherScale','ballReleaseY',
     'keyboardPosX','keyboardPosY','keyboardScale',
     'wordPanelPosX','wordPanelPosY','wordPanelScale'
   ].forEach(id=>$(id).addEventListener('input',updateAppearanceFromControls));
@@ -1092,7 +1102,10 @@ function bindEvents(){
 
   $$('.modal').forEach(modal=>{
     modal.addEventListener('click',e=>{
-      if(e.target===modal && modal.id!=='timeoutModal') hideModal(modal.id);
+      if(e.target===modal && modal.id!=='timeoutModal'){
+        if(modal.id==='appearanceModal' && $('ballReleasePreview')) $('ballReleasePreview').style.display='none';
+        hideModal(modal.id);
+      }
     });
   });
 }
