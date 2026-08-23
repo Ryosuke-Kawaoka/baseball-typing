@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>タイピング ホームランチャレンジ</title>
-<link rel="stylesheet" href="style.css?v=20" />
+<link rel="stylesheet" href="style.css?v=22" />
 </head><body><div id="app">
 <div class="stadium"><div class="stands"></div><div class="field"></div><div class="mound"></div></div>
 <div class="hud">
@@ -17,7 +17,7 @@
 <option value="5">5秒</option>
 </select>
 </label>
-<button id="backgroundAdjustBtn" type="button">背景を調整</button>
+<button id="appearanceBtn" type="button">見た目の変更</button>
 <button id="start">10球チャレンジ開始</button>
 <label class="bgSelectLabel">背景
 <select id="backgroundSelect">
@@ -56,37 +56,45 @@
 
 
 
-<div id="backgroundAdjustModal" class="backgroundAdjustModal" aria-hidden="true">
-  <div class="backgroundAdjustCard">
-    <button id="backgroundAdjustCloseX" class="backgroundAdjustCloseX" type="button">×</button>
-    <div class="backgroundAdjustTitle">背景の位置を調整</div>
-    <div class="backgroundAdjustSub">スライダーを動かすと、その場で背景が動きます。</div>
+<div id="appearanceModal" class="appearanceModal" aria-hidden="true">
+<div class="appearanceCard">
+<button id="appearanceCloseX" class="appearanceCloseX" type="button">×</button>
+<div class="appearanceTitle">見た目の変更</div>
+<div class="appearanceSub">背景と投手を、ゲーム画面を見ながら調整できます。</div>
 
-    <div class="bgAdjustRow">
-      <label for="bgPosX">左右位置</label>
-      <input id="bgPosX" type="range" min="0" max="100" step="1" value="50">
-      <output id="bgPosXValue">50%</output>
-    </div>
-
-    <div class="bgAdjustRow">
-      <label for="bgPosY">上下位置</label>
-      <input id="bgPosY" type="range" min="0" max="100" step="1" value="50">
-      <output id="bgPosYValue">50%</output>
-    </div>
-
-    <div class="bgAdjustRow">
-      <label for="bgScale">拡大率</label>
-      <input id="bgScale" type="range" min="80" max="180" step="1" value="100">
-      <output id="bgScaleValue">100%</output>
-    </div>
-
-    <div class="bgAdjustActions">
-      <button id="bgResetBtn" type="button">初期位置に戻す</button>
-      <button id="bgAdjustDoneBtn" type="button" class="primary">この位置で決定</button>
-    </div>
-  </div>
+<div class="appearanceSection">
+<div class="appearanceSectionTitle">球場背景</div>
+<div class="appearanceRow"><label>球場</label><select id="appearanceBgSelect"></select><span></span></div>
+<div class="appearanceRow"><label>背景・左右</label><input id="bgPosX" type="range" min="0" max="100" step="1"><output id="bgPosXValue"></output></div>
+<div class="appearanceRow"><label>背景・上下</label><input id="bgPosY" type="range" min="0" max="100" step="1"><output id="bgPosYValue"></output></div>
+<div class="appearanceRow"><label>背景・拡大</label><input id="bgScale" type="range" min="70" max="220" step="1"><output id="bgScaleValue"></output></div>
 </div>
 
+<div class="appearanceSection">
+<div class="appearanceSectionTitle">投手</div>
+<div class="appearanceRow"><label>投手・左右</label><input id="pitcherPosX" type="range" min="0" max="100" step=".5"><output id="pitcherPosXValue"></output></div>
+<div class="appearanceRow"><label>投手・上下</label><input id="pitcherPosY" type="range" min="-150" max="250" step="1"><output id="pitcherPosYValue"></output></div>
+<div class="appearanceRow"><label>投手・大きさ</label><input id="pitcherScale" type="range" min="50" max="220" step="1"><output id="pitcherScaleValue"></output></div>
+</div>
+
+<div class="appearanceSection">
+<div class="appearanceSectionTitle">球場を追加</div>
+<div class="uploadHelp">球場名を入力して画像を選ぶと、このブラウザの背景一覧に追加されます。</div>
+<div class="uploadGrid">
+<input id="stadiumNameInput" type="text" maxlength="40" placeholder="例：甲子園球場">
+<label class="filePickButton">画像を選ぶ<input id="stadiumFileInput" type="file" accept="image/*"></label>
+<button id="stadiumUploadBtn" type="button">追加する</button>
+</div>
+<div id="stadiumFileName" class="stadiumFileName">画像未選択</div>
+<div id="customStadiumList" class="customStadiumList"></div>
+</div>
+
+<div class="appearanceActions">
+<button id="appearanceResetBtn" type="button">この球場の設定をリセット</button>
+<button id="appearanceDoneBtn" type="button" class="primary">決定</button>
+</div>
+</div>
+</div>
 <div id="timeoutModal" class="timeoutModal" aria-hidden="true">
   <div class="timeoutCard">
     <div class="timeoutTitle">タイム</div>
@@ -137,4 +145,4 @@
 </div>
 
 <div class="summary" id="summary"><div class="summaryCard"><div class="summaryTitle">ホームランチャレンジ 結果</div><div class="summaryNumber"><span id="finalHR">0</span>本</div><div class="summaryText" id="finalText"></div><button id="again">もう一度チャレンジ</button></div></div>
-<script src="script.js?v=20"></script></body></html>
+<script src="script.js?v=22"></script></body></html>

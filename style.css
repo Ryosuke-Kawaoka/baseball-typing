@@ -1509,3 +1509,20 @@ body{
 @media(max-width:620px){
   .bgAdjustRow{grid-template-columns:72px 1fr 52px}
 }
+
+#appearanceBtn{background:#d9edff;color:#10233b;font-weight:800}
+.appearanceModal{position:fixed;inset:0;z-index:10050;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,8,18,.72);backdrop-filter:blur(5px)}
+.appearanceModal.show{display:flex}
+.appearanceCard{position:relative;width:min(94vw,680px);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#183654,#0a1b2d);border:1px solid rgba(255,255,255,.24);border-radius:24px;padding:22px;box-shadow:0 28px 80px rgba(0,0,0,.55)}
+.appearanceCloseX{position:absolute;top:10px;right:12px;background:transparent!important;color:#fff!important;font-size:1.45rem}
+.appearanceTitle{font-size:1.7rem;font-weight:1000}.appearanceSub{margin-top:4px;opacity:.78;font-size:.9rem;margin-bottom:16px}
+.appearanceSection{margin-top:14px;padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(4,12,24,.34)}
+.appearanceSectionTitle{font-size:1.05rem;font-weight:1000;margin-bottom:10px}
+.appearanceRow{display:grid;grid-template-columns:100px 1fr 62px;align-items:center;gap:10px;margin:12px 0}
+.appearanceRow label{font-weight:800;font-size:.9rem}.appearanceRow input[type=range]{width:100%;accent-color:#ffd54a}.appearanceRow output{text-align:right;font-weight:900;color:#ffd54a}.appearanceRow select{width:100%}
+.uploadHelp{opacity:.78;font-size:.86rem;line-height:1.5;margin-bottom:10px}.uploadGrid{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+.uploadGrid input[type=text]{min-width:0;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 11px;background:#07111e;color:#fff;font:inherit}
+.filePickButton{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;background:#d9edff;color:#10233b;font-weight:900;cursor:pointer;white-space:nowrap}.filePickButton input{display:none}
+#stadiumUploadBtn{background:#ffd54a;color:#241800}.stadiumFileName{margin-top:8px;opacity:.72;font-size:.8rem}
+.customStadiumList{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.customStadiumChip{display:inline-flex;align-items:center;gap:5px;padding:6px 8px 6px 10px;border-radius:999px;background:#132844;border:1px solid rgba(255,255,255,.14);font-size:.82rem}.customStadiumChip button{background:transparent;color:#ff9ba3;padding:1px 4px}
+.appearanceActions{display:flex;gap:9px;justify-content:flex-end;margin-top:16px}.appearanceActions .primary{background:#ffd54a;color:#241800}

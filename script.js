@@ -24,130 +24,78 @@ let words=loadWords();
 const $ = id => document.getElementById(id);
 
 
-const BG_STORAGE_KEY='typingBaseballBackgroundV1';
 
-function applyBackground(name){
-  const app=$('app');
-  if(!app)return;
-  const bg=name==='dodgers'?'dodgers':'escon';
+const BG_STORAGE_KEY='typingBaseballBackgroundV2';
+const APPEARANCE_STORAGE_KEY='typingBaseballAppearanceV2';
+const DB_NAME='typingBaseballStadiumDB', STORE='stadiums';
+const BUILTIN=[
+{id:'escon',name:'エスコンフィールド',url:'stadium_escon.png',builtin:true},
+{id:'dodgers',name:'ドジャースタジアム',url:'stadium_dodgers.jpg',builtin:true}
+];
+let stadiumLibrary=[...BUILTIN], selectedStadiumId='escon', selectedCustomFile=null;
+const DEFAULT_APP={bgX:50,bgY:50,bgScale:100,pitcherX:50,pitcherY:0,pitcherScale:100};
+let appearanceStore=(()=>{try{return JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY))||{}}catch(e){return {}}})();
+const saveAppStore=()=>{try{localStorage.setItem(APPEARANCE_STORAGE_KEY,JSON.stringify(appearanceStore))}catch(e){}};
+const appFor=id=>({...DEFAULT_APP,...(appearanceStore[id]||{})});
 
-  app.classList.remove('bg-escon','bg-dodgers');
-  app.classList.add(`bg-${bg}`);
+function openDB(){return new Promise((ok,ng)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE,{keyPath:'id'})};r.onsuccess=()=>ok(r.result);r.onerror=()=>ng(r.error)})}
+async function dbAll(){try{const d=await openDB();return await new Promise((ok,ng)=>{const r=d.transaction(STORE,'readonly').objectStore(STORE).getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>ng(r.error)})}catch(e){return []}}
+async function dbPut(x){const d=await openDB();return new Promise((ok,ng)=>{const t=d.transaction(STORE,'readwrite');t.objectStore(STORE).put(x);t.oncomplete=ok;t.onerror=()=>ng(t.error)})}
+async function dbDel(id){const d=await openDB();return new Promise((ok,ng)=>{const t=d.transaction(STORE,'readwrite');t.objectStore(STORE).delete(id);t.oncomplete=ok;t.onerror=()=>ng(t.error)})}
 
-  if($('backgroundSelect')){
-    $('backgroundSelect').value=bg;
+function rebuildSelectors(){
+  [$('backgroundSelect'),$('appearanceBgSelect')].filter(Boolean).forEach(sel=>{
+    sel.innerHTML='';stadiumLibrary.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o)});sel.value=selectedStadiumId
+  })
+}
+function applyAppearance(){
+  const a=appFor(selectedStadiumId), app=$('app'), p=document.querySelector('.pitcherWrap');
+  const st=stadiumLibrary.find(x=>x.id===selectedStadiumId)||stadiumLibrary[0];
+  if(app&&st){
+    app.style.setProperty('background-image',`url("${st.url}")`,'important');
+    app.style.setProperty('background-position',`${a.bgX}% ${a.bgY}%`,'important');
+    app.style.setProperty('background-size',a.bgScale===100?'cover':`${a.bgScale}% auto`,'important')
   }
-
-  try{
-    localStorage.setItem(BG_STORAGE_KEY,bg);
-  }catch(e){}
-}
-
-function loadBackground(){
-  let bg='escon';
-  try{
-    const saved=localStorage.getItem(BG_STORAGE_KEY);
-    if(saved==='escon' || saved==='dodgers'){
-      bg=saved;
-    }
-  }catch(e){}
-  applyBackground(bg);
-}
-
-
-
-const BG_ADJUST_STORAGE_KEY='typingBaseballBackgroundAdjustV1';
-
-const BG_DEFAULTS={
-  escon:{x:50,y:50,scale:100},
-  dodgers:{x:50,y:50,scale:100}
-};
-
-function getBackgroundAdjustments(){
-  try{
-    const saved=JSON.parse(localStorage.getItem(BG_ADJUST_STORAGE_KEY));
-    return {
-      escon:{...BG_DEFAULTS.escon,...(saved?.escon||{})},
-      dodgers:{...BG_DEFAULTS.dodgers,...(saved?.dodgers||{})}
-    };
-  }catch(e){
-    return JSON.parse(JSON.stringify(BG_DEFAULTS));
+  if(p){
+    p.style.setProperty('left',`${a.pitcherX}%`,'important');
+    p.style.setProperty('top',`${a.pitcherY}px`,'important');
+    p.style.setProperty('transform',`translateX(-50%) scale(${a.pitcherScale/100})`,'important');
+    p.style.setProperty('transform-origin','50% 100%','important')
   }
 }
-
-let backgroundAdjustments=getBackgroundAdjustments();
-
-function currentBackgroundName(){
-  return $('backgroundSelect')?.value==='dodgers' ? 'dodgers' : 'escon';
+function syncAppearance(){
+  if(!$('bgPosX'))return;const a=appFor(selectedStadiumId);
+  const vals={bgPosX:a.bgX,bgPosY:a.bgY,bgScale:a.bgScale,pitcherPosX:a.pitcherX,pitcherPosY:a.pitcherY,pitcherScale:a.pitcherScale};
+  Object.entries(vals).forEach(([id,v])=>$(id).value=v);
+  $('bgPosXValue').textContent=`${a.bgX}%`;$('bgPosYValue').textContent=`${a.bgY}%`;$('bgScaleValue').textContent=`${a.bgScale}%`;
+  $('pitcherPosXValue').textContent=`${a.pitcherX}%`;$('pitcherPosYValue').textContent=`${a.pitcherY}px`;$('pitcherScaleValue').textContent=`${a.pitcherScale}%`;
+  if($('appearanceBgSelect'))$('appearanceBgSelect').value=selectedStadiumId
 }
-
-function applyBackgroundAdjustment(name=currentBackgroundName()){
-  const app=$('app');
-  if(!app)return;
-
-  const a=backgroundAdjustments[name] || BG_DEFAULTS[name];
-  app.style.setProperty('background-position',`${a.x}% ${a.y}%`,'important');
-
-  // 100%は従来の cover。101%以上/99%以下では数値指定にしてズーム調整可能にする
-  if(a.scale===100){
-    app.style.setProperty('background-size','cover','important');
-  }else{
-    app.style.setProperty('background-size',`${a.scale}% auto`,'important');
-  }
+function selectStadium(id){
+  if(!stadiumLibrary.some(x=>x.id===id))id='escon';selectedStadiumId=id;
+  try{localStorage.setItem(BG_STORAGE_KEY,id)}catch(e){};rebuildSelectors();applyAppearance();syncAppearance()
 }
-
-function saveBackgroundAdjustments(){
-  try{
-    localStorage.setItem(BG_ADJUST_STORAGE_KEY,JSON.stringify(backgroundAdjustments));
-  }catch(e){}
+function updateAppearance(){
+  appearanceStore[selectedStadiumId]={bgX:+$('bgPosX').value,bgY:+$('bgPosY').value,bgScale:+$('bgScale').value,pitcherX:+$('pitcherPosX').value,pitcherY:+$('pitcherPosY').value,pitcherScale:+$('pitcherScale').value};
+  saveAppStore();syncAppearance();applyAppearance()
 }
-
-function syncBackgroundAdjustmentControls(){
-  const name=currentBackgroundName();
-  const a=backgroundAdjustments[name] || BG_DEFAULTS[name];
-
-  $('bgPosX').value=a.x;
-  $('bgPosY').value=a.y;
-  $('bgScale').value=a.scale;
-  $('bgPosXValue').textContent=`${a.x}%`;
-  $('bgPosYValue').textContent=`${a.y}%`;
-  $('bgScaleValue').textContent=`${a.scale}%`;
+function resetAppearance(){delete appearanceStore[selectedStadiumId];saveAppStore();syncAppearance();applyAppearance()}
+function renderCustomList(){
+  const box=$('customStadiumList');if(!box)return;box.innerHTML='';
+  stadiumLibrary.filter(x=>!x.builtin).forEach(s=>{const c=document.createElement('div');c.className='customStadiumChip';c.innerHTML=`<span>${s.name}</span>`;const b=document.createElement('button');b.type='button';b.textContent='×';b.onclick=async()=>{if(!confirm(`「${s.name}」を削除しますか？`))return;await dbDel(s.id);stadiumLibrary=stadiumLibrary.filter(x=>x.id!==s.id);delete appearanceStore[s.id];saveAppStore();if(selectedStadiumId===s.id)selectedStadiumId='escon';rebuildSelectors();renderCustomList();selectStadium(selectedStadiumId)};c.appendChild(b);box.appendChild(c)})
 }
-
-function updateBackgroundAdjustmentFromControls(){
-  const name=currentBackgroundName();
-  backgroundAdjustments[name]={
-    x:+$('bgPosX').value,
-    y:+$('bgPosY').value,
-    scale:+$('bgScale').value
-  };
-
-  $('bgPosXValue').textContent=`${backgroundAdjustments[name].x}%`;
-  $('bgPosYValue').textContent=`${backgroundAdjustments[name].y}%`;
-  $('bgScaleValue').textContent=`${backgroundAdjustments[name].scale}%`;
-
-  applyBackgroundAdjustment(name);
-  saveBackgroundAdjustments();
+async function addCustomStadium(){
+  const name=$('stadiumNameInput').value.trim(),file=selectedCustomFile;if(!name)return alert('球場名を入力してください。');if(!file)return alert('画像を選んでください。');
+  const id=`custom_${Date.now()}`;await dbPut({id,name,blob:file});stadiumLibrary.push({id,name,url:URL.createObjectURL(file),builtin:false});
+  $('stadiumNameInput').value='';$('stadiumFileInput').value='';$('stadiumFileName').textContent='画像未選択';selectedCustomFile=null;rebuildSelectors();renderCustomList();selectStadium(id)
 }
-
-function openBackgroundAdjust(){
-  syncBackgroundAdjustmentControls();
-  $('backgroundAdjustModal').classList.add('show');
-  $('backgroundAdjustModal').setAttribute('aria-hidden','false');
+async function initStadiums(){
+  const custom=await dbAll();stadiumLibrary=[...BUILTIN,...custom.map(s=>({...s,url:URL.createObjectURL(s.blob),builtin:false}))];
+  try{const x=localStorage.getItem(BG_STORAGE_KEY);if(x&&stadiumLibrary.some(s=>s.id===x))selectedStadiumId=x}catch(e){}
+  rebuildSelectors();renderCustomList();applyAppearance();syncAppearance()
 }
-
-function closeBackgroundAdjust(){
-  $('backgroundAdjustModal').classList.remove('show');
-  $('backgroundAdjustModal').setAttribute('aria-hidden','true');
-}
-
-function resetBackgroundAdjust(){
-  const name=currentBackgroundName();
-  backgroundAdjustments[name]={...BG_DEFAULTS[name]};
-  saveBackgroundAdjustments();
-  syncBackgroundAdjustmentControls();
-  applyBackgroundAdjustment(name);
-}
+function openAppearance(){syncAppearance();renderCustomList();$('appearanceModal').classList.add('show')}
+function closeAppearance(){$('appearanceModal').classList.remove('show')}
 
 const sfx = {
   hit: new Audio('hit.mp3'),
@@ -166,11 +114,13 @@ let pos=0;
 let misses=0;
 let hrs=0;
 let pitchIndex=0;
+  lastWordKey=null;
 let startAt=0;
 let duration=10;
 let raf=null;
 let animTimers=[];
 let nextTimer=null;
+let lastWordKey=null;
 let paused=false;
 let pauseStartedAt=0;
 let pausedElapsed=0;
@@ -706,7 +656,14 @@ function startPitch(){
   $('miss').textContent='0';
 
   duration=+$('duration').value;
-  const w=words[Math.floor(Math.random()*words.length)];
+  let candidates=words;
+  if(words.length>1 && lastWordKey!==null){
+    candidates=words.filter(w=>`${w[0]}\u0000${w[1]}`!==lastWordKey);
+  }
+
+  const w=candidates[Math.floor(Math.random()*candidates.length)];
+  lastWordKey=`${w[0]}\u0000${w[1]}`;
+
   jp=w[0];
   prepareTypingTargets(w[1]);
 
@@ -949,26 +906,14 @@ $('resumeBtn').addEventListener('click',resumeTimeout);
 updateKeyboardGuide();
 
 
-if($('backgroundSelect')){
-  $('backgroundSelect').addEventListener('change',e=>{
-    applyBackground(e.target.value);
-    if(typeof syncBackgroundAdjustmentControls==='function') syncBackgroundAdjustmentControls();
-  });
-}
-loadBackground();
 
-
-if($('backgroundAdjustBtn')) $('backgroundAdjustBtn').addEventListener('click',openBackgroundAdjust);
-if($('backgroundAdjustCloseX')) $('backgroundAdjustCloseX').addEventListener('click',closeBackgroundAdjust);
-if($('bgAdjustDoneBtn')) $('bgAdjustDoneBtn').addEventListener('click',closeBackgroundAdjust);
-if($('bgResetBtn')) $('bgResetBtn').addEventListener('click',resetBackgroundAdjust);
-
-['bgPosX','bgPosY','bgScale'].forEach(id=>{
-  if($(id)) $(id).addEventListener('input',updateBackgroundAdjustmentFromControls);
-});
-
-if($('backgroundAdjustModal')){
-  $('backgroundAdjustModal').addEventListener('click',e=>{
-    if(e.target===$('backgroundAdjustModal')) closeBackgroundAdjust();
-  });
-}
+if($('backgroundSelect'))$('backgroundSelect').addEventListener('change',e=>selectStadium(e.target.value));
+if($('appearanceBgSelect'))$('appearanceBgSelect').addEventListener('change',e=>selectStadium(e.target.value));
+if($('appearanceBtn'))$('appearanceBtn').addEventListener('click',openAppearance);
+if($('appearanceCloseX'))$('appearanceCloseX').addEventListener('click',closeAppearance);
+if($('appearanceDoneBtn'))$('appearanceDoneBtn').addEventListener('click',closeAppearance);
+if($('appearanceResetBtn'))$('appearanceResetBtn').addEventListener('click',resetAppearance);
+['bgPosX','bgPosY','bgScale','pitcherPosX','pitcherPosY','pitcherScale'].forEach(id=>{if($(id))$(id).addEventListener('input',updateAppearance)});
+if($('stadiumFileInput'))$('stadiumFileInput').addEventListener('change',e=>{selectedCustomFile=e.target.files?.[0]||null;$('stadiumFileName').textContent=selectedCustomFile?selectedCustomFile.name:'画像未選択'});
+if($('stadiumUploadBtn'))$('stadiumUploadBtn').addEventListener('click',addCustomStadium);
+initStadiums();
