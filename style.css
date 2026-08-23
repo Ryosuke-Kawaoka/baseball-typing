@@ -448,3 +448,37 @@ select{background:#fff;color:#111}
 #appearanceModal .appearanceCard.isDragging{
   box-shadow:0 30px 90px rgba(0,0,0,.72) !important;
 }
+
+
+/* ===== v30 ボール出所調整 ===== */
+#ballReleasePreview{
+  position:absolute;
+  left:50%;
+  top:8%;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 35% 28%, #fff 0 38%, #eee 58%, #cfcfcf 100%);
+  border:1px solid rgba(70,70,70,.45);
+  transform:translate(-50%,-50%);
+  z-index:60;
+  display:none;
+  pointer-events:none;
+  box-shadow:0 0 0 2px rgba(255,213,74,.5),0 2px 8px rgba(0,0,0,.5);
+}
+#ballReleasePreview::before,
+#ballReleasePreview::after{
+  content:"";
+  position:absolute;
+  top:1px;
+  bottom:1px;
+  width:4px;
+  border-left:1px solid #d83b45;
+  border-radius:50%;
+}
+#ballReleasePreview::before{left:2px;transform:rotate(18deg)}
+#ballReleasePreview::after{right:2px;transform:rotate(198deg)}
+#appearanceModal.show ~ #app #ballReleasePreview{
+  display:block;
+}

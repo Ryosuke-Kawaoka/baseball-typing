@@ -504,6 +504,22 @@ function rebuildStadiumSelectors(){
   });
 }
 
+
+function currentBallReleaseYOffset(){
+  try{
+    return appFor(selectedStadiumId).ballReleaseY ?? -10;
+  }catch(e){
+    return -10;
+  }
+}
+
+function updateBallReleasePreview(){
+  const preview=$('ballReleasePreview');
+  if(!preview)return;
+  const y=currentBallReleaseYOffset();
+  preview.style.top=`calc(8% + ${y}px)`;
+}
+
 function applyAppearance(){
   const stadium = stadiumLibrary.find(s=>s.id===state.selectedStadiumId) || BUILTIN_STADIUMS[0];
   const appearance = appearanceFor(state.selectedStadiumId);
@@ -1215,6 +1231,7 @@ if($('appearanceDragHandle')){
   $('appearanceDragHandle').addEventListener('pointermove',moveAppearanceDrag);
   $('appearanceDragHandle').addEventListener('pointerup',endAppearanceDrag);
   $('appearanceDragHandle').addEventListener('pointercancel',endAppearanceDrag);
+  updateBallReleasePreview();
 }
 
 window.addEventListener('resize',keepAppearancePanelOnScreen);

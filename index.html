@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>タイピング ホームランチャレンジ</title>
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 <div id="app">
@@ -97,6 +97,11 @@
       <div class="appearanceRow"><label for="pitcherPosX">左右</label><input id="pitcherPosX" type="range" min="0" max="100" step=".5"><output id="pitcherPosXValue"></output></div>
       <div class="appearanceRow"><label for="pitcherPosY">上下</label><input id="pitcherPosY" type="range" min="-150" max="250" step="1"><output id="pitcherPosYValue"></output></div>
       <div class="appearanceRow"><label for="pitcherScale">大きさ</label><input id="pitcherScale" type="range" min="50" max="220" step="1"><output id="pitcherScaleValue"></output></div>
+      <div class="appearanceRow">
+        <label for="ballReleaseY">ボール出所</label>
+        <input id="ballReleaseY" type="range" min="-100" max="180" step="1">
+        <output id="ballReleaseYValue"></output>
+      </div>
     </section>
 
     <section class="appearanceSection">
@@ -182,6 +187,6 @@
   </div>
 </div>
 
-<script src="script.js?v=29"></script>
+<script src="script.js?v=30"></script>
 </body>
 </html>
