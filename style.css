@@ -482,3 +482,12 @@ select{background:#fff;color:#111}
 #appearanceModal.show ~ #app #ballReleasePreview{
   display:block;
 }
+
+/* v33 確信ホームラン画像管理 */
+.kakushinUploadGrid{grid-template-columns:auto auto}
+.kakushinImageItem{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:#132844;border:1px solid rgba(255,255,255,.12)}
+.kakushinImageInfo{display:flex;align-items:center;gap:9px;min-width:0}
+.kakushinThumb{width:52px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.18);flex:0 0 auto}
+.kakushinImageName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem;font-weight:800}
+.kakushinDeleteBtn{flex:0 0 auto;padding:6px 10px!important;background:#7d2630!important;color:#fff!important;border-radius:8px!important}
+.kakushinBuiltIn{padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:.82rem;opacity:.82}

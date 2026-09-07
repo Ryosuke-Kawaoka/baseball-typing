@@ -21,6 +21,7 @@ const BG_STORAGE_KEY = 'typingBaseballBackgroundV2';
 const APPEARANCE_STORAGE_KEY = 'typingBaseballAppearanceV2';
 const STADIUM_DB_NAME = 'typingBaseballStadiumDB';
 const STADIUM_STORE = 'stadiums';
+const KAKUSHIN_STORE = 'kakushinImages';
 const MAX_WORDS = 100;
 
 const PITCHER_FRAMES = Array.from(
@@ -84,6 +85,8 @@ const state = {
 let words = loadWords();
 let stadiumLibrary = [...BUILTIN_STADIUMS];
 let appearanceStore = loadAppearanceStore();
+let customKakushinImages = [];
+let selectedKakushinFile = null;
 
 /* ---------- 音 ---------- */
 const sfx = {
@@ -451,10 +454,11 @@ function appearanceFor(id){
 
 function openStadiumDB(){
   return new Promise((resolve,reject)=>{
-    const request = indexedDB.open(STADIUM_DB_NAME,1);
+    const request = indexedDB.open(STADIUM_DB_NAME,2);
     request.onupgradeneeded = ()=>{
       const db = request.result;
       if(!db.objectStoreNames.contains(STADIUM_STORE)) db.createObjectStore(STADIUM_STORE,{keyPath:'id'});
+      if(!db.objectStoreNames.contains(KAKUSHIN_STORE)) db.createObjectStore(KAKUSHIN_STORE,{keyPath:'id'});
     };
     request.onsuccess = ()=>resolve(request.result);
     request.onerror = ()=>reject(request.error);
@@ -490,6 +494,90 @@ async function stadiumDbDelete(id){
     tx.oncomplete = resolve;
     tx.onerror = ()=>reject(tx.error);
   });
+}
+
+
+async function getCustomKakushinImages(){
+  try{
+    const db=await openStadiumDB();
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction(KAKUSHIN_STORE,'readonly');
+      const req=tx.objectStore(KAKUSHIN_STORE).getAll();
+      req.onsuccess=()=>resolve(req.result||[]);
+      req.onerror=()=>reject(req.error);
+    });
+  }catch(_e){return []}
+}
+async function saveCustomKakushinImage(record){
+  const db=await openStadiumDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(KAKUSHIN_STORE,'readwrite');
+    tx.objectStore(KAKUSHIN_STORE).put(record);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+async function deleteCustomKakushinImage(id){
+  const db=await openStadiumDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(KAKUSHIN_STORE,'readwrite');
+    tx.objectStore(KAKUSHIN_STORE).delete(id);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+function renderKakushinImageList(){
+  const box=$('kakushinImageList');
+  if(!box)return;
+  box.innerHTML='';
+  const builtin=document.createElement('div');
+  builtin.className='kakushinBuiltIn';
+  builtin.textContent='標準画像：kakushin.png';
+  box.appendChild(builtin);
+
+  customKakushinImages.forEach(item=>{
+    const row=document.createElement('div');
+    row.className='kakushinImageItem';
+    const info=document.createElement('div');
+    info.className='kakushinImageInfo';
+    const img=document.createElement('img');
+    img.className='kakushinThumb'; img.src=item.url; img.alt='';
+    const name=document.createElement('span');
+    name.className='kakushinImageName'; name.textContent=item.name||'追加画像';
+    info.append(img,name);
+    const del=document.createElement('button');
+    del.type='button'; del.className='kakushinDeleteBtn'; del.textContent='削除';
+    del.addEventListener('click',async()=>{
+      if(!confirm(`「${item.name||'追加画像'}」を削除しますか？`))return;
+      await deleteCustomKakushinImage(item.id);
+      if(item.url?.startsWith('blob:'))URL.revokeObjectURL(item.url);
+      customKakushinImages=customKakushinImages.filter(x=>x.id!==item.id);
+      renderKakushinImageList();
+    });
+    row.append(info,del);
+    box.appendChild(row);
+  });
+}
+async function addKakushinImage(){
+  if(!selectedKakushinFile){alert('画像を選んでください。');return;}
+  const file=selectedKakushinFile;
+  const id=`kakushin_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+  const record={id,name:file.name,blob:file};
+  await saveCustomKakushinImage(record);
+  customKakushinImages.push({...record,url:URL.createObjectURL(file)});
+  selectedKakushinFile=null;
+  $('kakushinFileInput').value='';
+  $('kakushinFileName').textContent='画像未選択';
+  renderKakushinImageList();
+}
+async function initKakushinImages(){
+  const saved=await getCustomKakushinImages();
+  customKakushinImages=saved.map(item=>({...item,url:URL.createObjectURL(item.blob)}));
+  renderKakushinImageList();
+}
+function pickKakushinImageUrl(){
+  const choices=['kakushin.png',...customKakushinImages.map(x=>x.url)];
+  return choices[Math.floor(Math.random()*choices.length)];
 }
 
 function rebuildStadiumSelectors(){
@@ -818,7 +906,10 @@ function tick(now){
 }
 
 function showKakushinHomerun(){
-  const overlay = $('kakushinOverlay');
+  const overlay=$('kakushinOverlay');
+  const img=overlay?.querySelector('img');
+  if(!overlay||!img)return;
+  img.src=pickKakushinImageUrl();
   overlay.classList.remove('show');
   void overlay.offsetWidth;
   overlay.classList.add('show');
@@ -1253,3 +1344,12 @@ if($('appearanceDragHandle')){
 window.addEventListener('resize',keepAppearancePanelOnScreen);
 
 if($('ballReleaseY')) $('ballReleaseY').addEventListener('input',updateAppearance);
+
+if($('kakushinFileInput')){
+  $('kakushinFileInput').addEventListener('change',e=>{
+    selectedKakushinFile=e.target.files?.[0]||null;
+    $('kakushinFileName').textContent=selectedKakushinFile?selectedKakushinFile.name:'画像未選択';
+  });
+}
+if($('kakushinAddBtn'))$('kakushinAddBtn').addEventListener('click',addKakushinImage);
+initKakushinImages();

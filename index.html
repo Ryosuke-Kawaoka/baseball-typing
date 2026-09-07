@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>タイピング ホームランチャレンジ</title>
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=33">
 </head>
 <body>
 <div id="app">
@@ -131,6 +131,18 @@
       <div id="customStadiumList" class="customStadiumList"></div>
     </section>
 
+    
+    <section class="appearanceSection kakushinImageSection">
+      <h3>確信ホームラン画像</h3>
+      <p class="sectionHelp">確信ホームラン演出で表示する画像を追加できます。標準画像と追加画像の中からランダムで1枚表示されます。</p>
+      <div class="uploadGrid kakushinUploadGrid">
+        <label class="filePickButton">画像を選ぶ<input id="kakushinFileInput" type="file" accept="image/*"></label>
+        <button id="kakushinAddBtn" type="button">追加する</button>
+      </div>
+      <div id="kakushinFileName" class="stadiumFileName">画像未選択</div>
+      <div id="kakushinImageList" class="customStadiumList"></div>
+    </section>
+
     <div class="modalActions">
       <button id="appearanceResetBtn" type="button">この球場の設定をリセット</button>
       <button id="appearanceDoneBtn" type="button" class="primary">決定</button>
@@ -188,6 +200,6 @@
   </div>
 </div>
 
-<script src="script.js?v=32"></script>
+<script src="script.js?v=33"></script>
 </body>
 </html>
