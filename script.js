@@ -559,22 +559,47 @@ function renderKakushinImageList(){
   });
 }
 async function addKakushinImage(){
-  if(!selectedKakushinFile){alert('画像を選んでください。');return;}
-  const file=selectedKakushinFile;
-  const id=`kakushin_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-  const record={id,name:file.name,blob:file};
-  await saveCustomKakushinImage(record);
-  customKakushinImages.push({...record,url:URL.createObjectURL(file)});
-  selectedKakushinFile=null;
-  $('kakushinFileInput').value='';
-  $('kakushinFileName').textContent='画像未選択';
-  renderKakushinImageList();
+  const file = selectedKakushinFile;
+  if(!file){
+    alert('画像を選んでください。');
+    return;
+  }
+
+  try{
+    const id = `kakushin_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    const record = {id,name:file.name,blob:file};
+
+    await saveCustomKakushinImage(record);
+
+    customKakushinImages.push({
+      ...record,
+      url:URL.createObjectURL(file)
+    });
+
+    selectedKakushinFile = null;
+    $('kakushinFileInput').value = '';
+    $('kakushinFileName').textContent = '画像未選択';
+    renderKakushinImageList();
+  }catch(err){
+    console.error('確信ホームラン画像の保存に失敗:',err);
+    alert('画像を保存できませんでした。ページを再読み込みして、もう一度試してください。');
+  }
 }
+
 async function initKakushinImages(){
-  const saved=await getCustomKakushinImages();
-  customKakushinImages=saved.map(item=>({...item,url:URL.createObjectURL(item.blob)}));
+  try{
+    const saved = await getCustomKakushinImages();
+    customKakushinImages = saved.map(item=>({
+      ...item,
+      url:URL.createObjectURL(item.blob)
+    }));
+  }catch(err){
+    console.error('確信ホームラン画像の読み込みに失敗:',err);
+    customKakushinImages = [];
+  }
   renderKakushinImageList();
 }
+
 function pickKakushinImageUrl(){
   const choices=['kakushin.png',...customKakushinImages.map(x=>x.url)];
   return choices[Math.floor(Math.random()*choices.length)];
@@ -1343,13 +1368,22 @@ if($('appearanceDragHandle')){
 
 window.addEventListener('resize',keepAppearancePanelOnScreen);
 
-if($('ballReleaseY')) $('ballReleaseY').addEventListener('input',updateAppearance);
 
 if($('kakushinFileInput')){
   $('kakushinFileInput').addEventListener('change',e=>{
-    selectedKakushinFile=e.target.files?.[0]||null;
-    $('kakushinFileName').textContent=selectedKakushinFile?selectedKakushinFile.name:'画像未選択';
+    selectedKakushinFile = e.target.files?.[0] || null;
+    if($('kakushinFileName')){
+      $('kakushinFileName').textContent =
+        selectedKakushinFile ? selectedKakushinFile.name : '画像未選択';
+    }
   });
 }
-if($('kakushinAddBtn'))$('kakushinAddBtn').addEventListener('click',addKakushinImage);
+
+if($('kakushinAddBtn')){
+  $('kakushinAddBtn').addEventListener('click',()=>{
+    addKakushinImage();
+  });
+}
+
 initKakushinImages();
+
