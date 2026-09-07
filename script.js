@@ -530,12 +530,7 @@ function renderKakushinImageList(){
   const box=$('kakushinImageList');
   if(!box)return;
   box.innerHTML='';
-  const builtin=document.createElement('div');
-  builtin.className='kakushinBuiltIn';
-  builtin.textContent='標準画像：kakushin.png';
-  box.appendChild(builtin);
-
-  customKakushinImages.forEach(item=>{
+customKakushinImages.forEach(item=>{
     const row=document.createElement('div');
     row.className='kakushinImageItem';
     const info=document.createElement('div');
@@ -601,7 +596,8 @@ async function initKakushinImages(){
 }
 
 function pickKakushinImageUrl(){
-  const choices=['kakushin.png',...customKakushinImages.map(x=>x.url)];
+  if(!customKakushinImages.length) return null;
+  const choices = customKakushinImages.map(x=>x.url);
   return choices[Math.floor(Math.random()*choices.length)];
 }
 
@@ -934,7 +930,11 @@ function showKakushinHomerun(){
   const overlay=$('kakushinOverlay');
   const img=overlay?.querySelector('img');
   if(!overlay||!img)return;
-  img.src=pickKakushinImageUrl();
+
+  const imageUrl = pickKakushinImageUrl();
+  if(!imageUrl) return;
+
+  img.src=imageUrl;
   overlay.classList.remove('show');
   void overlay.offsetWidth;
   overlay.classList.add('show');
